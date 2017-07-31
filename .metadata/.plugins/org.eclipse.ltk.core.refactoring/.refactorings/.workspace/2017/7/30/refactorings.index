@@ -1,0 +1,7 @@
+1501068447082	Delete resource 'rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs'
+1501068591178	Delete resource 'tirtos_builds_CC1350_LAUNCHXL_release_gcc'
+1501176514183	Delete resource 'uartRxTx_CC1350_LAUNCHXL_TI/src'
+1501176525295	Delete resource 'uartRxTx_CC1350_LAUNCHXL_TI/rfExamples.cfg'
+1501176670738	Delete resource 'uartRxTx_CC1350_LAUNCHXL_TI/CC1350_LAUNCHXL.cmd'
+1501178789765	Delete resource 'uartRxTx_CC1350_LAUNCHXL_TI'
+1501273254928	Delete resource 'rfPacketTx_CC1350STK_tirtos_ccs'

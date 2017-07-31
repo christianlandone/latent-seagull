@@ -1,0 +1,16 @@
+
+**** Clean-only build of configuration Debug for project pdmUART ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "pdmUART.hex"  "pdmUART.out" 
+DEL /F "CC1350STK.obj" "ccfg.obj" "pdmUART.obj" "rfsettings\smartrf_settings.obj" 
+DEL /F "CC1350STK.d" "ccfg.d" "pdmUART.d" "rfsettings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\pdmUART.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\CC1350STK.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\rfsettings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\CC1350STK.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\rfsettings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****

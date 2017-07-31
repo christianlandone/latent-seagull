@@ -1,0 +1,419 @@
+
+**** Build of configuration Debug for project tirtos_builds_CC1350_LAUNCHXL_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 all -O 
+making ../src/sysbios/rom_sysbios.aem3 ...
+gmake[1]: Nothing to be done for 'all'.
+gmake[1]: Nothing to be done for 'configPkg/linker.cmd'.
+making ../src/sysbios/rom_sysbios.aem3 ...
+gmake[2]: Nothing to be done for 'all'.
+
+**** Build Finished ****
+
+**** Build of configuration Debug for project rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 all -O 
+gmake[1]: 'rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.out' is up to date.
+
+**** Build Finished ****
+
+**** Build of configuration Debug for project tirtos_builds_CC1350_LAUNCHXL_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 all -O 
+making ../src/sysbios/rom_sysbios.aem3 ...
+gmake[1]: Nothing to be done for 'all'.
+gmake[1]: Nothing to be done for 'configPkg/linker.cmd'.
+making ../src/sysbios/rom_sysbios.aem3 ...
+gmake[2]: Nothing to be done for 'all'.
+
+**** Build Finished ****
+
+**** Build of configuration Debug for project tirtos_builds_CC1350_LAUNCHXL_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 all -O 
+making ../src/sysbios/rom_sysbios.aem3 ...
+gmake[1]: Nothing to be done for 'all'.
+gmake[1]: Nothing to be done for 'configPkg/linker.cmd'.
+making ../src/sysbios/rom_sysbios.aem3 ...
+gmake[2]: Nothing to be done for 'all'.
+
+**** Build Finished ****
+
+**** Build of configuration Debug for project rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 all -O 
+gmake[1]: 'rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.out' is up to date.
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project pdmUART ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "pdmUART.hex"  "pdmUART.out" 
+DEL /F "CC1350STK.obj" "ccfg.obj" "pdmUART.obj" "rfsettings\smartrf_settings.obj" 
+DEL /F "CC1350STK.d" "ccfg.d" "pdmUART.d" "rfsettings\smartrf_settings.d" 
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project pdmUART ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "pdmUART.hex"  "pdmUART.out" 
+DEL /F "CC1350STK.obj" "ccfg.obj" "pdmUART.obj" "rfsettings\smartrf_settings.obj" 
+DEL /F "CC1350STK.d" "ccfg.d" "pdmUART.d" "rfsettings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\pdmUART.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\CC1350STK.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\rfsettings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\CC1350STK.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\rfsettings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "RFQueue.obj" "ccfg.obj" "rfPacketRx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "RFQueue.d" "ccfg.d" "rfPacketRx.d" "smartrf_settings\smartrf_settings.d" 
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "RFQueue.obj" "ccfg.obj" "rfPacketRx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "RFQueue.d" "ccfg.d" "rfPacketRx.d" "smartrf_settings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "RFQueue.obj" "ccfg.obj" "rfPacketRx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "RFQueue.d" "ccfg.d" "rfPacketRx.d" "smartrf_settings\smartrf_settings.d" 
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "RFQueue.obj" "ccfg.obj" "rfPacketRx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "RFQueue.d" "ccfg.d" "rfPacketRx.d" "smartrf_settings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "ccfg.obj" "rfPacketTx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "ccfg.d" "rfPacketTx.d" "smartrf_settings\smartrf_settings.d" 
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "ccfg.obj" "rfPacketTx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "ccfg.d" "rfPacketTx.d" "smartrf_settings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project tirtos_builds_CC1350STK_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+cleaning ../src/sysbios ...
+DEL /F  "tirtos_builds_CC1350STK_release_ccs.lib"  "../src/makefile.libs" "configPkg\linker.cmd" "configPkg\compiler.opt" 
+RMDIR /S/Q  "configPkg\" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tirtos_builds_CC1350STK_release_ccs\Debug\tirtos_builds_CC1350STK_release_ccs.lib
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tirtos_builds_CC1350STK_release_ccs\src\../src/makefile.libs
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project tirtos_builds_CC1350STK_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "tirtos_builds_CC1350STK_release_ccs.lib"  "../src/makefile.libs" "configPkg\linker.cmd" "configPkg\compiler.opt" 
+makefile:145: recipe for target 'clean' failed
+The system cannot find the file specified.
+gmake: [clean] Error 1 (ignored)
+The system cannot find the file specified.
+gmake: [clean] Error 2 (ignored)
+RMDIR /S/Q  "configPkg\" 
+makefile:145: recipe for target 'clean' failed
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project tirtos_builds_CC1350_LAUNCHXL_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+cleaning ../src/sysbios ...
+DEL /F  "tirtos_builds_CC1350_LAUNCHXL_release_ccs.lib"  "../src/makefile.libs" "configPkg\linker.cmd" "configPkg\compiler.opt" 
+RMDIR /S/Q  "configPkg\" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tirtos_builds_CC1350_LAUNCHXL_release_ccs\Debug\tirtos_builds_CC1350_LAUNCHXL_release_ccs.lib
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tirtos_builds_CC1350_LAUNCHXL_release_ccs\src\../src/makefile.libs
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project tirtos_builds_CC1350_LAUNCHXL_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "tirtos_builds_CC1350_LAUNCHXL_release_ccs.lib"  "../src/makefile.libs" "configPkg\linker.cmd" "configPkg\compiler.opt" 
+makefile:145: recipe for target 'clean' failed
+The system cannot find the file specified.
+gmake: [clean] Error 1 (ignored)
+The system cannot find the file specified.
+gmake: [clean] Error 2 (ignored)
+RMDIR /S/Q  "configPkg\" 
+makefile:145: recipe for target 'clean' failed
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Build of configuration Debug for project tirtos_builds_CC1350STK_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 all -O 
+gmake[1]: Entering directory 'C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350STK_release_ccs/Debug'
+'Building file: ../release.cfg'
+'Invoking: XDCtools'
+"C:/ti/ccs720/xdctools_3_50_02_20_core/xs" --xdcpath="C:/ti/simplelink_cc13x0_sdk_1_40_00_10/source;C:/ti/simplelink_cc13x0_sdk_1_40_00_10/kernel/tirtos/packages;C:/ti/ccs720/ccsv7/ccs_base;" xdc.tools.configuro -o configPkg -t ti.targets.arm.elf.M3 -p ti.platforms.simplelink:CC1350F128 -r release -c "C:/ti/ccs720/ccsv7/tools/compiler/ti-cgt-arm_16.9.3.LTS" --compileOptions " -DDeviceFamily_CC13X0 " "../release.cfg"
+
+**** Build of configuration Debug for project tirtos_builds_CC1350STK_release_ccs ****
+
+!CommandLauncher.error.commandCanceled!
+Error: Program "C:/ti/ccs720/ccsv7/utils/bin/gmake" is not found in PATH
+
+PATH=[C:\ti\ccs720\ccsv7\ccs_base\emulation\analysis\bin\..\..\..\common\bin;C:\ti\ccs720\ccsv7\ccs_base\emulation\analysis\bin\..\..\..\DebugServer\bin;C:\ti\ccs720\ccsv7\ccs_base\emulation\analysis\bin\ofs;C:\ti\ccs720\ccsv7\ccs_base\common\bin;C:\ti\ccs720\ccsv7\ccs_base\common\uscif;C:\ProgramData\Oracle\Java\javapath;C:\Program Files (x86)\Intel\iCLS Client\;C:\Program Files\Intel\iCLS Client\;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\Program Files\Intel\Intel(R) Management Engine Components\DAL;C:\Program Files\Intel\Intel(R) Management Engine Components\IPT;C:\Program Files (x86)\Intel\Intel(R) Management Engine Components\DAL;C:\Program Files (x86)\Intel\Intel(R) Management Engine Components\IPT;C:\Program Files (x86)\Intel\OpenCL SDK\2.0\bin\x86;C:\Program Files (x86)\Intel\OpenCL SDK\2.0\bin\x64;C:\MinGW\bin;C:\MinGW\msys\1.0\bin;C:\Program Files (x86)\java\jre7\bin;C:\Program Files (x86)\java\jre7\lib;C:\Program Files\Microsoft SQL Server\110\Tools\Binn\;C:\ti\gcc\bin;C:\Program Files\Calibre2\;C:\Program Files (x86)\RTLSDR Scanner;C:\Python27\;C:\Program Files (x86)\Windows Kits\8.1\Windows Performance Toolkit\;%LUXRENDER_ROOT%;C:\Program Files (x86)\Skype\Phone\;C:\Users\chris\AppData\Local\Microsoft\WindowsApps;;C:\ti\ccs720\ccsv7\ccs_base\emulation\analysis\bin\.;C:\ti\ccs720\ccsv7\ccs_base\emulation\analysis\bin\../xmldb/aet_config;C:\ti\ccs720\ccsv7\ccs_base\emulation\analysis\bin\../xmldb/trace_config/setup;C:\ti\ccs720\ccsv7\ccs_base\emulation\analysis\bin\../xmldb/trace_config/devices;C:\ti\ccs720\ccsv7\ccs_base\emulation\analysis\bin\../../../common/bin;C:\ti\ccs720\ccsv7\ccs_base\emulation\analysis\bin\../../../common/uscif;C:\ti\ccs720\ccsv7\ccs_base\emulation\analysis\bin\../../tpi;C:\ti\ccs720\ccsv7\ccs_base\emulation\drivers]
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project pdmUART ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "pdmUART.hex"  "pdmUART.out" 
+DEL /F "CC1350STK.obj" "ccfg.obj" "pdmUART.obj" "rfsettings\smartrf_settings.obj" 
+DEL /F "CC1350STK.d" "ccfg.d" "pdmUART.d" "rfsettings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\pdmUART.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\CC1350STK.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\rfsettings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\CC1350STK.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\rfsettings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project pdmUART ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "pdmUART.hex"  "pdmUART.out" 
+DEL /F "CC1350STK.obj" "ccfg.obj" "pdmUART.obj" "rfsettings\smartrf_settings.obj" 
+DEL /F "CC1350STK.d" "ccfg.d" "pdmUART.d" "rfsettings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\pdmUART.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\CC1350STK.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\rfsettings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\CC1350STK.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\pdmUART\Debug\rfsettings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "RFQueue.obj" "ccfg.obj" "rfPacketRx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "RFQueue.d" "ccfg.d" "rfPacketRx.d" "smartrf_settings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "RFQueue.obj" "ccfg.obj" "rfPacketRx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "RFQueue.d" "ccfg.d" "rfPacketRx.d" "smartrf_settings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRxUART_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "RFQueue.obj" "ccfg.obj" "rfPacketRx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "RFQueue.d" "ccfg.d" "rfPacketRx.d" "smartrf_settings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "RFQueue.obj" "ccfg.obj" "rfPacketRx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "RFQueue.d" "ccfg.d" "rfPacketRx.d" "smartrf_settings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "ccfg.obj" "rfPacketTx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "ccfg.d" "rfPacketTx.d" "smartrf_settings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.hex"  "rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.out" 
+DEL /F "CC1350_LAUNCHXL.obj" "ccfg.obj" "rfPacketTx.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350_LAUNCHXL.d" "ccfg.d" "rfPacketTx.d" "smartrf_settings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\CC1350_LAUNCHXL.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs\Debug\smartrf_settings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project tirtos_builds_CC1350STK_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "tirtos_builds_CC1350STK_release_ccs.lib"  "../src/makefile.libs" "configPkg\linker.cmd" "configPkg\compiler.opt" 
+RMDIR /S/Q  "configPkg\" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tirtos_builds_CC1350STK_release_ccs\Debug\tirtos_builds_CC1350STK_release_ccs.lib
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tirtos_builds_CC1350STK_release_ccs\src\../src/makefile.libs
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tirtos_builds_CC1350STK_release_ccs\Debug\configPkg\linker.cmd
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project tirtos_builds_CC1350STK_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "tirtos_builds_CC1350STK_release_ccs.lib"  "../src/makefile.libs" "configPkg\linker.cmd" "configPkg\compiler.opt" 
+makefile:145: recipe for target 'clean' failed
+The system cannot find the file specified.
+gmake: [clean] Error 1 (ignored)
+The system cannot find the file specified.
+gmake: [clean] Error 2 (ignored)
+RMDIR /S/Q  "configPkg\" 
+makefile:145: recipe for target 'clean' failed
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project tirtos_builds_CC1350_LAUNCHXL_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "tirtos_builds_CC1350_LAUNCHXL_release_ccs.lib"  "../src/makefile.libs" "configPkg\linker.cmd" "configPkg\compiler.opt" 
+makefile:145: recipe for target 'clean' failed
+The system cannot find the file specified.
+gmake: [clean] Error 1 (ignored)
+The system cannot find the file specified.
+gmake: [clean] Error 2 (ignored)
+RMDIR /S/Q  "configPkg\" 
+makefile:145: recipe for target 'clean' failed
+'Finished clean'
+' '
+
+**** Build Finished ****
+
+**** Clean-only build of configuration Debug for project tirtos_builds_CC1350_LAUNCHXL_release_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "tirtos_builds_CC1350_LAUNCHXL_release_ccs.lib"  "../src/makefile.libs" "configPkg\linker.cmd" "configPkg\compiler.opt" 
+makefile:145: recipe for target 'clean' failed
+The system cannot find the file specified.
+gmake: [clean] Error 1 (ignored)
+The system cannot find the file specified.
+gmake: [clean] Error 2 (ignored)
+RMDIR /S/Q  "configPkg\" 
+makefile:145: recipe for target 'clean' failed
+'Finished clean'
+' '
+
+**** Build Finished ****
