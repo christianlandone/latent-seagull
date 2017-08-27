@@ -1,0 +1,14 @@
+
+**** Clean-only build of configuration Debug for project i2ctmp007_CC1350STK_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "i2ctmp007_CC1350STK_tirtos_ccs.hex"  "i2ctmp007_CC1350STK_tirtos_ccs.out" 
+DEL /F "CC1350STK.obj" "ccfg.obj" "i2ctmp007.obj" "main_tirtos.obj" 
+DEL /F "CC1350STK.d" "ccfg.d" "i2ctmp007.d" "main_tirtos.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\i2ctmp007_CC1350STK_tirtos_ccs\Debug\i2ctmp007_CC1350STK_tirtos_ccs.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\i2ctmp007_CC1350STK_tirtos_ccs\Debug\CC1350STK.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\i2ctmp007_CC1350STK_tirtos_ccs\Debug\CC1350STK.d
+'Finished clean'
+' '
+
+**** Build Finished ****

@@ -1,0 +1,38 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+SHELL = cmd.exe
+
+# Add inputs and outputs from these tool invocations to the build variables 
+C_SRCS += \
+../pdm/Codec1.c \
+../pdm/PDMCC26XX.c \
+../pdm/PDMCC26XX_util.c 
+
+C_DEPS += \
+./pdm/Codec1.d \
+./pdm/PDMCC26XX.d \
+./pdm/PDMCC26XX_util.d 
+
+OBJS += \
+./pdm/Codec1.obj \
+./pdm/PDMCC26XX.obj \
+./pdm/PDMCC26XX_util.obj 
+
+OBJS__QUOTED += \
+"pdm\Codec1.obj" \
+"pdm\PDMCC26XX.obj" \
+"pdm\PDMCC26XX_util.obj" 
+
+C_DEPS__QUOTED += \
+"pdm\Codec1.d" \
+"pdm\PDMCC26XX.d" \
+"pdm\PDMCC26XX_util.d" 
+
+C_SRCS__QUOTED += \
+"../pdm/Codec1.c" \
+"../pdm/PDMCC26XX.c" \
+"../pdm/PDMCC26XX_util.c" 
+
+

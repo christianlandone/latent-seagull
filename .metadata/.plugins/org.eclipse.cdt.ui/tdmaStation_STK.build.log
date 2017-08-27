@@ -1,0 +1,16 @@
+
+**** Clean-only build of configuration Debug for project tdmaStation_STK ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "tdmaStation_STK.hex"  "tdmaStation_STK.out" 
+DEL /F "CC1350STK.obj" "StateMachine.obj" "ccfg.obj" "tdmaStation.obj" "smartrf_settings\smartrf_settings.obj" 
+DEL /F "CC1350STK.d" "StateMachine.d" "ccfg.d" "tdmaStation.d" "smartrf_settings\smartrf_settings.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tdmaStation_STK\Debug\tdmaStation_STK.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tdmaStation_STK\Debug\CC1350STK.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tdmaStation_STK\Debug\smartrf_settings\smartrf_settings.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tdmaStation_STK\Debug\CC1350STK.d
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tdmaStation_STK\Debug\smartrf_settings\smartrf_settings.d
+'Finished clean'
+' '
+
+**** Build Finished ****

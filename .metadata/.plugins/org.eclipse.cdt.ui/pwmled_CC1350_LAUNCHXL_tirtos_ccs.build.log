@@ -1,0 +1,7 @@
+
+**** Build of configuration Debug for project pwmled_CC1350_LAUNCHXL_tirtos_ccs ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 all -O 
+gmake[1]: 'pwmled_CC1350_LAUNCHXL_tirtos_ccs.out' is up to date.
+
+**** Build Finished ****

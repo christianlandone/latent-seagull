@@ -1,0 +1,14 @@
+
+**** Clean-only build of configuration Debug for project I2C_Test_SensorTag ****
+
+"C:\\ti\\ccs720\\ccsv7\\utils\\bin\\gmake" -k -j 4 clean -O 
+DEL /F  "I2C_Test_SensorTag.hex"  "I2C_Test_SensorTag.out" 
+DEL /F "CC1350STK.obj" "ccfg.obj" "main_tirtos.obj" 
+DEL /F "CC1350STK.d" "ccfg.d" "main_tirtos.d" 
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\I2C_Test_SensorTag\Debug\I2C_Test_SensorTag.hex
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\I2C_Test_SensorTag\Debug\CC1350STK.obj
+Could Not Find C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\I2C_Test_SensorTag\Debug\CC1350STK.d
+'Finished clean'
+' '
+
+**** Build Finished ****

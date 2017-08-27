@@ -1,0 +1,7 @@
+1502814514178	Delete resource 'rfSynchronizedPacketRx_CC1310_LAUNCHXL_tirtos_ccs'
+1502814521857	Delete resource 'rfSynchronizedPacketTx_CC1310_LAUNCHXL_tirtos_ccs'
+1502814529525	Delete resource 'tirtos_builds_CC1310_LAUNCHXL_release_ccs'
+1502976742613	Rename resource 'rfSynchronizedPacketTx_CC1350_LAUNCHXL_tirtos_ccs'
+1502976758682	Rename resource 'rfSynchronizedPacketRx_CC1350_LAUNCHXL_tirtos_ccs'
+1503178251645	Delete resource 'rfPacketTx_CC1350_LAUNCHXL_tirtos_ccs'
+1503178259405	Delete resource 'rfPacketRx_CC1350_LAUNCHXL_tirtos_ccs'
