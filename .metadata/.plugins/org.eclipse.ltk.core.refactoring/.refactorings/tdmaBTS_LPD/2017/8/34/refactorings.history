@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<session version="1.0">
-<refactoring comment="Rename resource &apos;tdmaBTS_LPD/tdmaTX.c&apos; to &apos;tdmaBTS.c&apos;" description="Rename resource &apos;tdmaTX.c&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="tdmaTX.c" name="tdmaBTS.c" stamp="1503316031271" updateReferences="true"/>
-</session>

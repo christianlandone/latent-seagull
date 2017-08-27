@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<session version="1.0">
-<refactoring comment="Rename resource &apos;tdmaRX_LPAD/rfSynchronizedPacketRx.c&apos; to &apos;tdmaRX.c&apos;" description="Rename resource &apos;rfSynchronizedPacketRx.c&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="rfSynchronizedPacketRx.c" name="tdmaRX.c" stamp="1502976887505" updateReferences="true"/>
-</session>

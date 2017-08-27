@@ -153,7 +153,7 @@ all: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 	@$(MAKE) --no-print-directory -Onone "tdmaStation_STK.out"
 
 dependents:
-	-cd C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350STK_release_ccs/Debug && $(MAKE) all
+	-cd C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350STK_release_ccs/Debug && $(MAKE) clean all
 
 # Tool invocations
 tdmaStation_STK.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS) C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350STK_release_ccs/Debug/tirtos_builds_CC1350STK_release_ccs.lib

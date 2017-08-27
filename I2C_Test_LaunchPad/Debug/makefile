@@ -149,7 +149,7 @@ all: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 	@$(MAKE) --no-print-directory -Onone "I2C_Test_LaunchPad.out"
 
 dependents:
-	-cd C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350_LAUNCHXL_release_ccs/Debug && $(MAKE) all
+	-cd C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350_LAUNCHXL_release_ccs/Debug && $(MAKE) clean all
 
 # Tool invocations
 I2C_Test_LaunchPad.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS) C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350_LAUNCHXL_release_ccs/Debug/tirtos_builds_CC1350_LAUNCHXL_release_ccs.lib
