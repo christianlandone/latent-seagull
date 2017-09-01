@@ -359,47 +359,32 @@ const NVS_Config NVS_config[CC1350_LAUNCHXL_NVSCOUNT] = {
 const uint_least8_t NVS_count = CC1350_LAUNCHXL_NVSCOUNT;
 
 /*
- *  =============================== PDM ===============================
+  *  =============================== I2S ===============================
 */
-#include "pdm/PDMCC26XX.h"
-#include "pdm/PDMCC26XX_util.h"
+#include "I2SDrv/I2SCC26XX.h"
 
-PDMCC26XX_Object        pdmCC26XXObjects[1];
-PDMCC26XX_I2S_Object    pdmCC26XXI2SObjects[1];
+I2SCC26XX_Object i2sCC26XXObject;
 
-const PDMCC26XX_HWAttrs pdmCC26XXHWAttrs[1] = {
-    {
-        .micPower     = 0x00000016,
-        .taskPriority = 2
-    }
+const I2SCC26XX_HWAttrs i2sCC26XXHWAttrs = {
+    .baseAddr = I2S0_BASE,
+    .intNum = INT_I2S_IRQ,
+    .intPriority = ~0,
+    .powerMngrId = PowerCC26XX_PERIPH_I2S,
+    .mclkPin = Board_I2S_MCLK,
+    .bclkPin = Board_I2S_BCLK,
+    .wclkPin = Board_I2S_WCLK,
+    .ad0Pin = Board_I2S_ADO,
 };
 
-const PDMCC26XX_Config PDMCC26XX_config[1] = {
-    {
-        .object  = &pdmCC26XXObjects[0],
-        .hwAttrs = &pdmCC26XXHWAttrs[0]
-    }
+/* I2S configuration structure */
+const I2SCC26XX_Config I2SCC26XX_config[] = {
+  {
+        .object = &i2sCC26XXObject,
+        .hwAttrs = &i2sCC26XXHWAttrs
+    },
+    {NULL, NULL}
 };
 
-const PDMCC26XX_I2S_HWAttrs pdmC26XXI2SHWAttrs[1] = {
-    {
-        .baseAddr       = I2S0_BASE,
-        .intNum         = INT_I2S_IRQ,
-        .powerMngrId    = PowerCC26XX_PERIPH_I2S,
-        .intPriority    = ~0,
-        .mclkPin        = 0x0000000C,
-        .bclkPin        = 0x00000017,
-        .wclkPin        = 0x00000018,
-        .ad0Pin         = 0x00000019,
-    }
-};
-
-const PDMCC26XX_I2S_Config PDMCC26XX_I2S_config[1] = {
-    {
-        .object  = &pdmCC26XXI2SObjects[0],
-        .hwAttrs = &pdmC26XXI2SHWAttrs[0]
-    }
-};
 
 
 /*
@@ -463,6 +448,38 @@ const RFCC26XX_HWAttrs RFCC26XX_hwAttrs = {
     .swiHwPriority   =  0,
 };
 
+/*  =============================== PWM ===============================
+*  Remove unused entries to reduce flash usage both in Board.c and Board.h
+*/
+#include <ti/drivers/PWM.h>
+#include <ti/drivers/pwm/PWMTimerCC26XX.h>
+
+PWMTimerCC26XX_Object pwmtimerCC26xxObjects[CC1350_LAUNCHXL_PWMCOUNT];
+
+const PWMTimerCC26XX_HwAttrs pwmtimerCC26xxHWAttrs[CC1350_LAUNCHXL_PWMCOUNT] = {
+   { .pwmPin = CC1350_LAUNCHXL_PWMPIN0, .gpTimerUnit = CC1350_LAUNCHXL_GPTIMER0A },
+   { .pwmPin = CC1350_LAUNCHXL_PWMPIN1, .gpTimerUnit = CC1350_LAUNCHXL_GPTIMER0B },
+   { .pwmPin = CC1350_LAUNCHXL_PWMPIN2, .gpTimerUnit = CC1350_LAUNCHXL_GPTIMER1A },
+   { .pwmPin = CC1350_LAUNCHXL_PWMPIN3, .gpTimerUnit = CC1350_LAUNCHXL_GPTIMER1B },
+   { .pwmPin = CC1350_LAUNCHXL_PWMPIN4, .gpTimerUnit = CC1350_LAUNCHXL_GPTIMER2A },
+   { .pwmPin = CC1350_LAUNCHXL_PWMPIN5, .gpTimerUnit = CC1350_LAUNCHXL_GPTIMER2B },
+   { .pwmPin = CC1350_LAUNCHXL_PWMPIN6, .gpTimerUnit = CC1350_LAUNCHXL_GPTIMER3A },
+   { .pwmPin = CC1350_LAUNCHXL_PWMPIN7, .gpTimerUnit = CC1350_LAUNCHXL_GPTIMER3B },
+};
+
+const PWM_Config PWM_config[CC1350_LAUNCHXL_PWMCOUNT] = {
+   { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[CC1350_LAUNCHXL_PWM0], &pwmtimerCC26xxHWAttrs[CC1350_LAUNCHXL_PWM0] },
+   { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[CC1350_LAUNCHXL_PWM1], &pwmtimerCC26xxHWAttrs[CC1350_LAUNCHXL_PWM1] },
+   { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[CC1350_LAUNCHXL_PWM2], &pwmtimerCC26xxHWAttrs[CC1350_LAUNCHXL_PWM2] },
+   { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[CC1350_LAUNCHXL_PWM3], &pwmtimerCC26xxHWAttrs[CC1350_LAUNCHXL_PWM3] },
+   { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[CC1350_LAUNCHXL_PWM4], &pwmtimerCC26xxHWAttrs[CC1350_LAUNCHXL_PWM4] },
+   { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[CC1350_LAUNCHXL_PWM5], &pwmtimerCC26xxHWAttrs[CC1350_LAUNCHXL_PWM5] },
+   { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[CC1350_LAUNCHXL_PWM6], &pwmtimerCC26xxHWAttrs[CC1350_LAUNCHXL_PWM6] },
+   { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[CC1350_LAUNCHXL_PWM7], &pwmtimerCC26xxHWAttrs[CC1350_LAUNCHXL_PWM7] },
+};
+
+
+const uint_least8_t PWM_count = CC1350_LAUNCHXL_PWMCOUNT;
 /*
  *  =============================== SPI DMA ===============================
  */

@@ -16,9 +16,7 @@ ORDERED_OBJS += \
 "./ccfg.obj" \
 "./main_tirtos.obj" \
 "./I2C/SensorI2C.obj" \
-"./pdm/Codec1.obj" \
-"./pdm/PDMCC26XX.obj" \
-"./pdm/PDMCC26XX_util.obj" \
+"./I2SDrv/I2SCC26XX.obj" \
 "./rfsettings/smartrf_settings.obj" \
 "../CC1350_LAUNCHXL_TIRTOS.cmd" \
 $(GEN_CMDS__FLAG) \
@@ -41,11 +39,11 @@ RMDIR := RMDIR /S/Q
 -include sources.mk
 -include subdir_vars.mk
 -include I2C/subdir_vars.mk
--include pdm/subdir_vars.mk
+-include I2SDrv/subdir_vars.mk
 -include rfsettings/subdir_vars.mk
 -include subdir_rules.mk
 -include I2C/subdir_rules.mk
--include pdm/subdir_rules.mk
+-include I2SDrv/subdir_rules.mk
 -include rfsettings/subdir_rules.mk
 -include objects.mk
 
@@ -160,7 +158,7 @@ all: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 	@$(MAKE) --no-print-directory -Onone "Alto_I2S.out"
 
 dependents:
-	-cd C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350_LAUNCHXL_release_ccs/Debug && $(MAKE) clean all
+	-cd C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350_LAUNCHXL_release_ccs/Debug && $(MAKE) all
 
 # Tool invocations
 Alto_I2S.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS) C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350_LAUNCHXL_release_ccs/Debug/tirtos_builds_CC1350_LAUNCHXL_release_ccs.lib
@@ -179,8 +177,8 @@ Alto_I2S.hex: $(EXE_OUTPUTS)
 # Other Targets
 clean:
 	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "CC1350_LAUNCHXL.obj" "ccfg.obj" "main_tirtos.obj" "I2C\SensorI2C.obj" "pdm\Codec1.obj" "pdm\PDMCC26XX.obj" "pdm\PDMCC26XX_util.obj" "rfsettings\smartrf_settings.obj" 
-	-$(RM) "CC1350_LAUNCHXL.d" "ccfg.d" "main_tirtos.d" "I2C\SensorI2C.d" "pdm\Codec1.d" "pdm\PDMCC26XX.d" "pdm\PDMCC26XX_util.d" "rfsettings\smartrf_settings.d" 
+	-$(RM) "CC1350_LAUNCHXL.obj" "ccfg.obj" "main_tirtos.obj" "I2C\SensorI2C.obj" "I2SDrv\I2SCC26XX.obj" "rfsettings\smartrf_settings.obj" 
+	-$(RM) "CC1350_LAUNCHXL.d" "ccfg.d" "main_tirtos.d" "I2C\SensorI2C.d" "I2SDrv\I2SCC26XX.d" "rfsettings\smartrf_settings.d" 
 	-@echo 'Finished clean'
 	-@echo ' '
 

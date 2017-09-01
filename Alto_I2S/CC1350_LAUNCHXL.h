@@ -100,6 +100,14 @@ extern const PIN_Config BoardGpioInitTable[];
 #define CC1350_LAUNCHXL_I2C0_SCL0             IOID_4
 #define CC1350_LAUNCHXL_I2C0_SDA0             IOID_5
 
+/* I2S */
+
+#define Board_I2S_ADO               IOID_25
+#define Board_I2S_ADI               IOID_26
+#define Board_I2S_BCLK              IOID_23
+#define Board_I2S_MCLK              IOID_12
+#define Board_I2S_WCLK              IOID_24
+
 /* LCD (430BOOST - Sharp96 Rev 1.1) */
 #define CC1350_LAUNCHXL_LCD_CS                IOID_24  /* SPI chip select */
 #define CC1350_LAUNCHXL_LCD_EXTCOMIN          IOID_12  /* External COM inversion */
@@ -117,7 +125,7 @@ extern const PIN_Config BoardGpioInitTable[];
 /* PWM Outputs */
 #define CC1350_LAUNCHXL_PWMPIN0               CC1350_LAUNCHXL_PIN_RLED
 #define CC1350_LAUNCHXL_PWMPIN1               CC1350_LAUNCHXL_PIN_GLED
-#define CC1350_LAUNCHXL_PWMPIN2               PIN_UNASSIGNED
+#define CC1350_LAUNCHXL_PWMPIN2               IOID_12
 #define CC1350_LAUNCHXL_PWMPIN3               PIN_UNASSIGNED
 #define CC1350_LAUNCHXL_PWMPIN4               PIN_UNASSIGNED
 #define CC1350_LAUNCHXL_PWMPIN5               PIN_UNASSIGNED

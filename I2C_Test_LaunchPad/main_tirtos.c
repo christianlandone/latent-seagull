@@ -134,8 +134,8 @@ Void taskFxn(UArg arg0, UArg arg1)
         while (1);
     }
 
-    deviceAddress = 0x94;
-    registerAddress = 0x03;
+    deviceAddress = 0x95>>1;
+    registerAddress = 0x01>>1;
     registerValue = 0xFF;
 
     /* Point to the T ambient register and read its 2 bytes */
@@ -143,9 +143,9 @@ Void taskFxn(UArg arg0, UArg arg1)
     txBuffer[1] = registerValue;
     i2cTransaction.slaveAddress = deviceAddress;
     i2cTransaction.writeBuf = txBuffer;
-    i2cTransaction.writeCount = 2;
+    i2cTransaction.writeCount = 1;
     i2cTransaction.readBuf = rxBuffer;
-    i2cTransaction.readCount = 0;
+    i2cTransaction.readCount = 1;
 
 
     for( i = 0; i < 200; i++)

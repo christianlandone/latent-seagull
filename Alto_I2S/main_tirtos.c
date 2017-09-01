@@ -18,20 +18,18 @@
 #include <ti/drivers/PIN.h>
 #include <ti/drivers/UART.h>
 #include <ti/drivers/I2C.h>
-
-/* PDM Driver */
-#include <ti/drivers/pdm/PDMCC26XX.h>
+#include <ti/drivers/PWM.h>
+#include <ti/drivers/I2S.h>
 
 /* Example/Board Header files */
 #include "Board.h"
 #include "I2C/SensorI2C.h"
 #include "I2C/CS42L55.h"
+#include "I2SDrv/I2SCC26XX.h"
 
 #include <stdint.h>
 #include <unistd.h>
 
-/* RF Settings */
-#include "rfsettings/smartrf_settings.h"
 
 #define TASKSTACKSIZE      1024
 
@@ -40,26 +38,34 @@ Char task0Stack[TASKSTACKSIZE];
 Semaphore_Struct semStruct;
 Semaphore_Handle saSem;
 
-static RF_Object rfObject;
-static RF_Handle rfHandle;
+#define BLE_AUDIO_CMD_STOP                    0x00
+#define BLE_AUDIO_CMD_START                   0x04
+#define BLE_AUDIO_CMD_START_MSBC              0x05
+#define BLE_AUDIO_CMD_NONE                    0xFF
 
-/* store the events for this application */
-static uint16_t events = 0x0000;
-#define SA_DEBOUNCE_COUNT_IN_MS  25
+#define RAS_DATA_TIC1_CMD                     0x01
 
-#define SA_PCM_START             0x0001
-#define SA_PCM_BLOCK_READY       0x0002
-#define SA_PCM_ERROR             0x0004
-#define SA_PCM_STOP              0x0008
-#define SA_BUTTON_EVENT          0x0010
+// Internal Events for RTOS application
+#define SBP_STATE_CHANGE_EVT                  0x0001
+#define SBP_CHAR_CHANGE_EVT                   0x0002
+#define SBP_PERIODIC_EVT                      0x0004
+#define SBP_CONN_EVT_END_EVT                  0x0008
+#define SBP_KEY_CHANGE_EVT                    0x0010
+#define SBP_I2S_FRAME_EVENT                   0x0020
+#define SBP_I2S_ERROR_EVENT                   0x0040
+#define SBP_SEND_STOP_CMD_EVENT               0x0080
+#define SBP_SEND_START_CMD_EVENT              0x0100
+#define SBP_STOP_I2S_EVENT                    0x0200
+#define SBP_START_I2S_EVENT                   0x0400
+#define SBP_I2S_DMA_EVENT                     0x0620
+
+// events flag for internal application events.
+static uint16_t events = 0x0001;
 
 /* Global memory storage for a PIN_Config table */
 static PIN_State ledPinState;
-static PIN_State buttonPinState;
 /* Pin driver handles */
 static PIN_Handle ledPinHandle;
-static PIN_Handle buttonPinHandle;
-static PIN_Id pendingPinId;
 
 
 /*
@@ -84,115 +90,257 @@ PIN_Config buttonPinTable[] = {
     PIN_TERMINATE
 };
 
-static bool processingButtonPress = false;
-static int totalFrameCount = 0;
-static int currentFrameCount = 0;
-static int sessionCount = 0;
+#define BLEAUDIO_BUFSIZE_ADPCM            96
+#define BLEAUDIO_HDRSIZE_ADPCM            4
+#define BLEAUDIO_NUM_NOT_PER_FRAME_ADPCM  5
+#define BLEAUDIO_NUM_NOT_PER_FRAME_MSBC   3
 
-/* Audio Protocol Define */
-#define SA_PCM_BLOCK_SIZE_IN_SAMPLES       32
-#define SA_PCM_BUFFER_NODE_SIZE_IN_BLOCKS   6
+#define ADPCM_SAMPLES_PER_FRAME   (BLEAUDIO_BUFSIZE_ADPCM * 2)
+#define MSBC_SAMPLES_PER_FRAME    40
+#define MSBC_ENCODED_SIZE          57
 
-#define AUDIO_BUF_COMPRESSED_SIZE   ((SA_PCM_BLOCK_SIZE_IN_SAMPLES*\
-                                      SA_PCM_BUFFER_NODE_SIZE_IN_BLOCKS*\
-                                     sizeof(uint16_t))/ PCM_COMPRESSION_RATE)
-#define AUDIO_BUF_UNCOMPRESSED_SIZE (SA_PCM_BLOCK_SIZE_IN_SAMPLES*\
-                                     SA_PCM_BUFFER_NODE_SIZE_IN_BLOCKS*\
-                                     sizeof(uint16_t))
+typedef enum {
+  STREAM_STATE_IDLE,
+  STREAM_STATE_SEND_START_CMD,
+  STREAM_STATE_START_I2S,
+  STREAM_STATE_ACTIVE,
+  STREAM_STATE_SEND_STOP_CMD,
+  STREAM_STATE_STOP_I2S,
+} STREAM_STATE_E;
 
-/* SA PDM drivers related */
-static void SA_PDMCC26XX_callbackFxn(PDMCC26XX_Handle handle,PDMCC26XX_StreamNotification *streamNotification);
-static PDMCC26XX_Handle pdmHandle = NULL;
-static void RF_processPDMData(RF_Handle rf, UART_Handle urt);
-static void *SA_audioMalloc(uint_least16_t size);
-static void SA_audioFree(void *msg, size_t size);
+int16_t *pcmSamples;
+uint16_t *uartSamples;
 
-PDMCC26XX_Params pdmParams;
+uint8_t i2sContMgtBuffer[I2S_BLOCK_OVERHEAD_IN_BYTES * I2SCC26XX_QUEUE_SIZE] = {0};
 
-/* SA audio streaming States */
-typedef enum
+ssize_t written = 0;
+struct {
+  STREAM_STATE_E streamState;
+  STREAM_STATE_E requestedStreamState;
+  uint8_t streamType;
+  uint8_t requestedStreamType;
+  uint8_t samplesPerFrame;
+  uint8_t notificationsPerFrame;
+  int8_t si;
+  int16_t pv;
+  uint8_t activeLED;
+} streamVariables = {STREAM_STATE_IDLE, STREAM_STATE_IDLE, 0, 0, 0, 0, 0, 0, 0};
+
+
+
+static I2SCC26XX_Handle i2sHandle = NULL;
+static I2SCC26XX_StreamNotification i2sStream;
+
+static void i2sCallbackFxn(I2SCC26XX_Handle handle, I2SCC26XX_StreamNotification *notification);
+
+
+static I2SCC26XX_Params i2sParams = {
+  .requestMode            = I2SCC26XX_CALLBACK_MODE,
+  .ui32requestTimeout     = BIOS_WAIT_FOREVER,
+  .callbackFxn            = i2sCallbackFxn,
+  .blockSize              = MSBC_SAMPLES_PER_FRAME,
+  .pvContBuffer           = NULL,
+  .ui32conBufTotalSize    = 0,
+  .pvContMgtBuffer        = (void *) i2sContMgtBuffer,
+  .ui32conMgtBufTotalSize = sizeof(i2sContMgtBuffer),
+  .currentStream          = &i2sStream
+};
+
+static bool i2sStreamInProgress = false;
+
+static void initCodec();
+static void initPWM_MClk();
+static void initI2SBus();
+static void startI2Sstream();
+
+
+
+static void taskFxnI2S(UArg arg0, UArg arg1)
 {
-  SA_AUDIO_IDLE,
-  SA_AUDIO_STARTING,
-  SA_AUDIO_STREAMING,
-  SA_AUDIO_STOPPING,
-  SA_AUDIO_ERROR
-} saAudioState_t;
-static saAudioState_t saAudioState = SA_AUDIO_IDLE;
+    uint32_t hwiKey;
+    int16_t idx;
 
-void buttonCallbackFxn(PIN_Handle handle, PIN_Id pinId);
+    //UART stream
+    UART_Handle uartHandle;
+    UART_Params uartParams;
 
+    initCodec();
+    initPWM_MClk();
 
-void initCodec()
-{
-
-    uint8_t devAddress = 0x95;
-    uint8_t regAddress = 0x01;
-    uint8_t val = 0x16;
-    int i;
-    uint8_t buffer[16];
-
-    bool status;
-    unsigned char readBuffer[3];
-    unsigned char writeBuffer[3];
-
-    I2C_Params i2cParams;
-    I2C_Handle i2cHandle;
-    I2C_Transaction i2cTransaction;
-
-    PIN_setOutputValue(ledPinHandle, Board_DIO15, 1);
-
-    I2C_init();
-    I2C_Params_init(&i2cParams);
-    i2cParams.bitRate = I2C_100kHz;
-    i2cHandle = I2C_open(Board_I2C0, &i2cParams);
-
-    writeBuffer[0] = 0x01;
-    //writeBuffer[1] = 0x99;
-    i2cTransaction.slaveAddress = 0x95;
-    i2cTransaction.writeBuf = writeBuffer;
-    i2cTransaction.writeCount = 1;
-    i2cTransaction.readBuf = readBuffer;
-    i2cTransaction.readCount = 1;
+    initI2SBus();
+    streamVariables.streamState = STREAM_STATE_START_I2S;
+    streamVariables.requestedStreamState = STREAM_STATE_ACTIVE;
+    startI2Sstream();
 
 
-    for (i = 0; i < 200; i++)
+
+    /* Create a UART with data processing off. */
+    UART_Params_init(&uartParams);
+    uartParams.writeDataMode = UART_DATA_BINARY;
+    uartParams.readDataMode = UART_DATA_BINARY;
+    uartParams.readReturnMode = UART_RETURN_FULL;
+    uartParams.readEcho = UART_ECHO_OFF;
+    uartParams.baudRate = 460800;
+
+    uartHandle = UART_open(Board_UART0, &uartParams);
+
+    //usleep(250000);
+
+    while (1)
     {
-        //SensorI2C_readReg(regAddress, &val, 1);
-        bool status = I2C_transfer(i2cHandle, &i2cTransaction);
-        if (!status) {
-           // Unsuccessful I2C transfer
-       }
+        if (events == 0)
+        {
+            if (Semaphore_getCount(saSem) == 0) {
+                System_printf("Sem blocked in task1\n");
+            }
+            Semaphore_pend(saSem, BIOS_WAIT_FOREVER);
+        }
 
-        usleep(250000);
+        /////////////////////////////////////////////////////////
+
+        if (events & SBP_I2S_FRAME_EVENT)
+        {
+          events &= ~SBP_I2S_FRAME_EVENT;
+          if (i2sStreamInProgress) {
+            I2SCC26XX_BufferRequest bufferRequest;
+            I2SCC26XX_BufferRelease bufferRelease;
+            bool gotBuffer = I2SCC26XX_requestBuffer(i2sHandle, &bufferRequest);
+
+            while (gotBuffer)
+            {
+                // Flush on UART
+
+
+                int16_t* pb = (int16_t*)bufferRequest.bufferIn;
+
+                for(idx = 0; idx < streamVariables.samplesPerFrame; idx++ )
+                {
+                    uartSamples[idx] = pb[2*idx+1];
+                }
+
+                UART_write(uartHandle, (uint8_t*)uartSamples , MSBC_SAMPLES_PER_FRAME* sizeof(int16_t));//streamVariables.samplesPerFrame * sizeof(int16_t));
+
+
+                //UART_write(uartHandle, bufferRequest.bufferIn, MSBC_SAMPLES_PER_FRAME);//streamVariables.samplesPerFrame * sizeof(int16_t));
+                //PIN_setOutputValue(ledPinHandle, Board_PIN_LED1,!PIN_getOutputValue(Board_PIN_LED1));
+                /*
+                if (streamVariables.streamType == BLE_AUDIO_CMD_START_MSBC) {
+                    sbc_encode(&sbc, (int16_t *)bufferRequest.bufferIn, streamVariables.samplesPerFrame * sizeof(int16_t), audio_encoded, MSBC_ENCODED_SIZE, &written);
+                    audio_encoded[1] = seqNum++;
+                }
+                else {
+                  audio_encoded[0] = (((seqNum++ % 32) << 3) | RAS_DATA_TIC1_CMD);
+                  // Send previous PV and SI
+                  audio_encoded[1] = streamVariables.si;
+                  audio_encoded[2] = LO_UINT16(streamVariables.pv);
+                  audio_encoded[3] = HI_UINT16(streamVariables.pv);
+                  Codec1_encodeBuff((uint8_t *)&audio_encoded[4], (int16_t *)bufferRequest.bufferIn, streamVariables.samplesPerFrame, &streamVariables.si, &streamVariables.pv);
+              }
+              SimpleBLEPeripheral_transmitAudioFrame(audio_encoded);
+              PIN_setOutputValue( hSbpPins, Board_DIO26_ANALOG, 1);*/
+              bufferRelease.bufferHandleIn = bufferRequest.bufferHandleIn;
+              bufferRelease.bufferHandleOut = NULL;
+              I2SCC26XX_releaseBuffer(i2sHandle, &bufferRelease);
+
+              gotBuffer = I2SCC26XX_requestBuffer(i2sHandle, &bufferRequest);
+            }
+          }
+        }
+
+        if (events & SBP_I2S_ERROR_EVENT)
+        {
+          events &= ~SBP_I2S_ERROR_EVENT;
+          //PIN_setOutputValue(ledPinHandle, Board_PIN_LED0,!PIN_getOutputValue(Board_PIN_LED0));
+
+          // Move to stop state
+          /*
+          hwiKey = Hwi_disable();
+          streamVariables.streamState = STREAM_STATE_SEND_STOP_CMD;
+          events |= SBP_SEND_STOP_CMD_EVENT;
+          Hwi_restore(hwiKey);
+          PIN_setOutputValue( hSbpPins, Board_DIO27_ANALOG, 1);
+          */
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//  ======== main ========
+////////////////////////////////////////////////////////////////////////////////////////
+
+int main(void) {
+     Task_Params taskParams;
+    Semaphore_Params semParams;
+
+    /* Call driver init functions */
+    Board_initGeneral();
+
+    UART_init();
+
+    /* Construct BIOS objects */
+    Task_Params_init(&taskParams);
+    taskParams.priority = 1;
+    taskParams.stackSize = TASKSTACKSIZE;
+    taskParams.stack = &task0Stack;
+    Task_construct(&task0Struct, (Task_FuncPtr)taskFxnI2S, &taskParams, NULL);
+
+
+    /* Open LED pins */
+    ledPinHandle = PIN_open(&ledPinState, ledPinTable);
+    if (!ledPinHandle) {
+        System_abort("Error initializing board LED pins\n");
     }
 
-    i = 0;
-
-    /*
-    PIN_setOutputValue(ledPinHandle, Board_PIN_LED0, 0);
-    PIN_setOutputValue(ledPinHandle, Board_PIN_LED1, 0);
-    PIN_setOutputValue(ledPinHandle, Board_DIO15, 0);
-
-    usleep(10000);
-
-    PIN_setOutputValue(ledPinHandle, Board_PIN_LED0, 1);
     PIN_setOutputValue(ledPinHandle, Board_PIN_LED1, 1);
-    PIN_setOutputValue(ledPinHandle, Board_DIO15, 0);
+
+
+    /* Construct a Semaphore object to be use as a resource lock, inital count 1 */
+    Semaphore_Params_init(&semParams);
+    Semaphore_construct(&semStruct, 1, &semParams);
+
+    /* Obtain instance handle */
+    saSem = Semaphore_handle(&semStruct);
+
+    /* Start BIOS */
+    BIOS_start();
+
+    return (0);
+}
+
+static void i2sCallbackFxn(I2SCC26XX_Handle handle, I2SCC26XX_StreamNotification *notification)
+{
+    if (notification->status == I2SCC26XX_STREAM_ERROR)
+    {
+        events |= SBP_I2S_ERROR_EVENT;
+        Semaphore_post(saSem);
+    }
+    else if (notification->status == I2SCC26XX_STREAM_BUFFER_READY)
+    {
+        // Provide buffer
+        events |= SBP_I2S_FRAME_EVENT;
+        Semaphore_post(saSem);
+        //PIN_setOutputValue( hSbpPins, Board_DIO25_ANALOG, !(PIN_getOutputValue(Board_DIO25_ANALOG)));
+        //PIN_setOutputValue( hSbpPins, (streamVariables.activeLED == Board_LED0) ? Board_LED1 : Board_LED0, 0);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//  Audio codec init
+////////////////////////////////////////////////////////////////////////////////////////
+static void initCodec()
+{
+    uint8_t devAddress = 0x4A;
+    uint8_t regAddress = 0x00;
+    uint8_t val = 0x16;
+
+    PIN_setOutputValue(ledPinHandle, Board_DIO15, 1);
 
     usleep(10000);
 
     SensorI2C_open();
-
     SensorI2C_select(SENSOR_I2C_0,devAddress);
 
 
-
-    for (i = 0; i < 20; i++)
-    {
-        SensorI2C_readReg(regAddress, &val, 1);
-        usleep(250000);
-    }
     ///////////////////////////////////////////////////////////////
 
     regAddress = 0x00;
@@ -215,7 +363,7 @@ void initCodec()
 
     //5. ADC.
     val = 0xF8;
-    SensorI2C_writeReg(0x32, &val, 1);
+    SensorI2C_writeReg(0x34, &val, 1);
 
     //6. Zero Cross Detector.
     val = 0xDC;
@@ -252,17 +400,17 @@ void initCodec()
     //14. [Disable test register access.].
     val = 0x00;
     SensorI2C_writeReg(0x00, &val, 1);
-    */
 
-    /* CS42L55 INITIALISATION */
+    ////////////////////////////////////////////////////////////////////////
+    // CS42L55 INITIALISATION
 
-    //M_WRI_I2C DEV_CS42L55, 0x09, 0x22 //Фильтр
+    //M_WRI_I2C DEV_CS42L55, 0x09, 0x22
     val = nHPFB | nHPFRZB | HPFA | nHPFRZA | HPFB_CF00 | HPFA_CF10;
     SensorI2C_writeReg(HPF_Control, &val, 1);
 
-    // PGAA <- AIN1A и включаем усиление 9 db
+    // PGAA <- AIN1A
     //M_WRI_I2C DEV_CS42L55, PGAA, nBOOSTx | PGAxMUX | PGAVOLx00db
-    val = 0x0;//nBOOSTx | PGAxMUX | ( (MODE_CONTROL&RECORD_CONFIG_GAIN_MASK) >> (RECORD_CONFIG_GAIN_BIT-1) );
+    val = BOOSTx | PGAxMUX | PGAVOLx00db;
     SensorI2C_writeReg(PGAA, &val, 1);
 
     // PGAB - Use
@@ -273,14 +421,14 @@ void initCodec()
     // Selected Input to HP Amplifier Ch.A <- DACA
     //M_WRI_I2C DEV_CS42L55, ADC_LINE_HP_MUX, ADCAMUX_01 | ADCBMUX_00 | LINEBMUX | LINEAMUX | HPBMUX | HPAMUX
     //if ( ( MODE_CONTROL & RECORD_CONFIG_GAIN_MASK ) == 0 )
-      val = ADCAMUX_01 | ADCBMUX_00 | LINEBMUX | LINEAMUX | HPBMUX | HPAMUX;
+        //val = ADCAMUX_01 | ADCBMUX_00 | LINEBMUX | LINEAMUX | HPBMUX | HPAMUX;
     //else
-      //val = ADCAMUX_00 | ADCBMUX_00 | LINEBMUX | LINEAMUX | HPBMUX | HPAMUX;
+    val = ADCAMUX_01 | ADCBMUX_00 | LINEBMUX | LINEAMUX | HPBMUX | HPAMUX;
     SensorI2C_writeReg(ADC_LINE_HP_MUX, &val, 1);
 
     //LRCK <- 12MHz
     //M_WRI_I2C DEV_CS42L55, CLK_CTL2, RATIO_01 | nGROUP32k | SPEED_11
-    val = RATIO_01 | nGROUP32k | SPEED_11 ;
+    val = RATIO_01 | GROUP32k | SPEED_10 ;
     SensorI2C_writeReg(CLK_CTL2, &val, 1);
 
     // Master (Output ONLY)
@@ -289,7 +437,7 @@ void initCodec()
     // MCLK signal into CODEC No divide
     // MCLK signal into CODEC ON
     // M_WRI_I2C DEV_CS42L55, CLK_CTL1, M_S | nINV_SCLK | SCK_MCK_00 | MCLKDIV2 | nMCLKDIS
-    val = M_S | nINV_SCLK | SCK_MCK_00 | nMCLKDIV2 | nMCLKDIS ;
+    val =  M_S | nINV_SCLK | SCK_MCK_00 | nMCLKDIV2 | nMCLKDIS ;
     SensorI2C_writeReg(CLK_CTL1, &val, 1);
 
     // Left Channel: ADCB       Right Channel: ADCA
@@ -300,7 +448,7 @@ void initCodec()
     // Mute on ADC channel B: Not muted.
     // Mute on ADC channel A: Not muted.
     //M_WRI_I2C DEV_CS42L55, ADC_CTL, DIGSUM_00 | nADCB_A | nPGAB_A | nINV_ADCB | nINV_ADCA | nADCBMUTE | nADCAMUTE
-    val = DIGSUM_00 | nADCB_A | nPGAB_A | nINV_ADCB | nINV_ADCA | nADCBMUTE | nADCAMUTE ;
+    val =  DIGSUM_00 | nADCB_A | nPGAB_A | nINV_ADCB | nINV_ADCA | nADCBMUTE | nADCAMUTE ;
     SensorI2C_writeReg(ADC_CTL, &val, 1);
 
     // DSP Status: Powered Down
@@ -319,414 +467,94 @@ void initCodec()
     // ADC channel A ON
     // Entire CODEC power UP
     //M_WRI_I2C DEV_CS42L55, PowerCTL1, nPDN_CHRG | nPDN_ADCB | PDN_ADCA | PDN
-    val = nPDN_CHRG | nPDN_ADCB | PDN_ADCA | PDN;
+    val = nPDN_CHRG | PDN_ADCB | PDN_ADCA | PDN;
     SensorI2C_writeReg(PowerCTL1, &val, 1);
 
-
     SensorI2C_close();
 }
 
-/*
- *  ======== taskFxn ========
- *  Task for this function is created statically. See the project's .cfg file.
- */
-Void taskFxn(UArg arg0, UArg arg1) {
-    static int debounceCount = 0;
-
-    UART_Handle uart;
-    UART_Params uartParams;
-
-    RF_Params rfParams;
-    RF_Params_init(&rfParams);
-
-    /* Request access to the radio */
-    rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
-    /* Set the frequency */
-    RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
-
-    /* Create a UART with data processing off. */
-    UART_Params_init(&uartParams);
-    uartParams.writeDataMode = UART_DATA_BINARY;
-    uartParams.readDataMode = UART_DATA_BINARY;
-    uartParams.readReturnMode = UART_RETURN_FULL;
-    uartParams.readEcho = UART_ECHO_OFF;
-    uartParams.baudRate = 460800;
-
-    uart = UART_open(Board_UART0, &uartParams);
-
-    initCodec();
-
-    /*
-    PIN_setOutputValue(ledPinHandle, Board_PIN_LED0, 0);
-    PIN_setOutputValue(ledPinHandle, Board_PIN_LED1, 0);
-    PIN_setOutputValue(ledPinHandle, Board_DIO15, 0);
-
-    usleep(100000);
-
-    PIN_setOutputValue(ledPinHandle, Board_PIN_LED0, 1);
-    PIN_setOutputValue(ledPinHandle, Board_PIN_LED1, 1);
-    PIN_setOutputValue(ledPinHandle, Board_DIO15, 1);
-
-    uint8_t rdval;
-    SensorI2C_open();
-    SensorI2C_select(SENSOR_I2C_0,0x95);
-    SensorI2C_readReg(0x01, &rdval, 1);
-    SensorI2C_close();
-    */
-
-    /* Loop forever */
-    while (1) {
-
-        /*
-         * Do not pend on semaphore until all events have been processed
-         */
-        if (events == 0)
-        {
-            if (Semaphore_getCount(saSem) == 0) {
-                System_printf("Sem blocked in task1\n");
-            }
-
-            /* Get access to resource */
-            Semaphore_pend(saSem, BIOS_WAIT_FOREVER);
-        }
-
-        /*
-         * Process button event, set in the pin interrupt routine
-         */
-        if (events & SA_BUTTON_EVENT)
-        {
-            /*
-             * Perform debouncing without use of additional resources.
-             * One could use a clock object. Instead this shows a way
-             * to do it with the Task_sleep() which is a blocking call
-             * which still allows the system to sleep. Only sleeping
-             * 1ms at a time prevents blocking other events in this task
-             * for too long. Since we're allowing other events in the
-             * task to be processed this timeout is not accurate.
-             * It will be greater than SA_DEBOUNCE_COUNT_IN_MS.
-             */
-            if (debounceCount >= SA_DEBOUNCE_COUNT_IN_MS)
-            {
-                if (!PIN_getInputValue(pendingPinId)) {
-                    /* Toggle LED based on the button pressed */
-                    switch (pendingPinId) {
-                    case Board_PIN_BUTTON0:
-                        events |= SA_PCM_START;
-                        break;
-
-                    case Board_PIN_BUTTON1:
-                        events |= SA_PCM_STOP;
-                        break;
-
-                    default:
-                        /* Do nothing */
-                        break;
-                    }
-                }
-                uint32_t tmpPinId = pendingPinId;
-                pendingPinId = PIN_UNASSIGNED;
-                debounceCount = 0;
-                /* Mark event as processed */
-                events &= ~SA_BUTTON_EVENT;
-
-                /* Re-enable interrupts */
-                processingButtonPress = false;
-                PIN_setInterrupt(buttonPinHandle, tmpPinId | PIN_IRQ_NEGEDGE);
-            }
-            else
-            {
-                /*
-                 * Wait 1ms before moving on.
-                 */
-                Task_sleep(1000 / Clock_tickPeriod);
-                debounceCount++;
-            }
-        }
-
-        /*
-         * Process the PDM stream start event
-         */
-        if (events & SA_PCM_START) {
-            if (pdmHandle == NULL)
-            {
-                /* Open PDM driver */
-                pdmHandle = PDMCC26XX_open(&pdmParams);
-            }
-            if (pdmHandle && (saAudioState == SA_AUDIO_IDLE)) {
-                saAudioState = SA_AUDIO_STARTING;
-                currentFrameCount = 0;
-                sessionCount++;
-                /* Stream immediately if we simply dump over UART. */
-                PDMCC26XX_startStream(pdmHandle);
-                PIN_setOutputValue(ledPinHandle, Board_PIN_LED1, 0);
-                saAudioState = SA_AUDIO_STREAMING;
-            }
-            /* Mark event as processed */
-            events &= ~SA_PCM_START;
-        }
-
-        /*
-         * Process event to stop PDM stream
-         */
-        if (events & SA_PCM_STOP)
-        {
-            if ((saAudioState != SA_AUDIO_IDLE) && (pdmHandle))
-            {
-                saAudioState = SA_AUDIO_STOPPING;
-                /* Stop PDM stream */
-                PDMCC26XX_stopStream(pdmHandle);
-                /* In case no more callbacks will be made, attempt to flush remaining data now. */
-                events |= SA_PCM_BLOCK_READY;
-            }
-            events &= ~SA_PCM_STOP;
-        }
-
-        /*
-         * Process PDM block ready event. This event is set in the
-         * PDM driver callback function.
-         */
-        if (events & SA_PCM_BLOCK_READY) {
-            RF_processPDMData(rfHandle, uart);
-            /* Mark event as processed */
-            events &= ~SA_PCM_BLOCK_READY;
-        }
-
-        /*
-         * Process the PCM error event.
-         */
-        if (events & SA_PCM_ERROR) {
-            /* Stop stream if not already stopped */
-            if ((saAudioState == SA_AUDIO_STREAMING) ||
-                (saAudioState == SA_AUDIO_STARTING)) {
-
-                events |= SA_PCM_STOP;
-            }
-            events &= ~SA_PCM_ERROR;
-        }
-    }
-}
-
-/*
- *  ======== main ========
- */
-int main(void) {
-    Task_Params taskParams;
-    Semaphore_Params semParams;
-
-    /* Call driver init functions */
-    Board_initGeneral();
-
-    UART_init();
-
-    /* Construct BIOS objects */
-    Task_Params_init(&taskParams);
-    taskParams.priority = 1;
-    taskParams.stackSize = TASKSTACKSIZE;
-    taskParams.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr)taskFxn, &taskParams, NULL);
-
-    /* Initialize PDM driver (invokes I2S) */
-    PDMCC26XX_init((PDMCC26XX_Handle) &(PDMCC26XX_config));
-
-    PDMCC26XX_Params_init(&pdmParams);
-    pdmParams.callbackFxn = SA_PDMCC26XX_callbackFxn;
-    pdmParams.micGain = PDMCC26XX_GAIN_18;
-    pdmParams.applyCompression = false;
-    pdmParams.startupDelayWithClockInSamples = 512;
-    pdmParams.retBufSizeInBytes = AUDIO_BUF_UNCOMPRESSED_SIZE + PCM_METADATA_SIZE;
-    pdmParams.mallocFxn = (PDMCC26XX_MallocFxn) SA_audioMalloc;
-    pdmParams.freeFxn = (PDMCC26XX_FreeFxn) SA_audioFree;
-
-
-    /* Open LED pins */
-    ledPinHandle = PIN_open(&ledPinState, ledPinTable);
-    if (!ledPinHandle) {
-        System_abort("Error initializing board LED pins\n");
-    }
-
-    PIN_setOutputValue(ledPinHandle, Board_PIN_LED1, 1);
-
-    buttonPinHandle = PIN_open(&buttonPinState, buttonPinTable);
-    if(!buttonPinHandle) {
-        System_abort("Error initializing button pins\n");
-    }
-
-    /* Setup callback for button pins */
-    if (PIN_registerIntCb(buttonPinHandle, &buttonCallbackFxn) != 0) {
-        System_abort("Error registering button callback function");
-    }
-
-    /* Construct a Semaphore object to be use as a resource lock, inital count 1 */
-    Semaphore_Params_init(&semParams);
-    Semaphore_construct(&semStruct, 1, &semParams);
-
-    /* Obtain instance handle */
-    saSem = Semaphore_handle(&semStruct);
-
-    /* This example has logging and many other debug capabilities enabled */
-    System_printf("This example does not attempt to minimize code or data "
-                  "footprint\n");
-    System_flush();
-
-    System_printf("Starting the PDM Stream example\nSystem provider is set to "
-                  "SysMin. Halt the target to view any SysMin contents in "
-                  "ROV.\n");
-    /* SysMin will only print to the console when you call flush or exit */
-    System_flush();
-
-    /* Start BIOS */
-    BIOS_start();
-
-    return (0);
-}
-
-/**
- *  @fn          SA_processPDMData
- *
- * @brief        Processed the received audio packetd from PDM driver and packed
- *               to send over RF4CE link.
- *
- * @param[in]    None.
- *
- * @param[out]   None.
- *
- * @return       None.
- *
- */
-
-static void RF_processPDMData(RF_Handle rf, UART_Handle urt)
+////////////////////////////////////////////////////////////////////////////////////////
+//  Stand alonee MCLK generation
+////////////////////////////////////////////////////////////////////////////////////////
+static void initPWM_MClk()
 {
-    PDMCC26XX_BufferRequest bufferRequest;
+    ///////////////////////////////////////////////////////////////
+    //start pwm on pin 12
+    PWM_Handle pwm1 = NULL;
+    PWM_Params params;
 
-    if ( (saAudioState == SA_AUDIO_STREAMING) ||
-         (saAudioState == SA_AUDIO_STARTING) ||
-         (saAudioState == SA_AUDIO_STOPPING) ) {
-        // Block ready, read it out and send it,
-        // if we're not already sending
-        while (PDMCC26XX_requestBuffer(pdmHandle, &bufferRequest))
-        {
-            if (bufferRequest.status == PDMCC26XX_STREAM_BLOCK_READY)
-            {
-                UART_write(urt, bufferRequest.buffer->pBuffer, AUDIO_BUF_UNCOMPRESSED_SIZE);
+    PWM_init();
 
-                if (!pdmParams.applyCompression)
-                {
+    PWM_Params_init(&params);
+    params.dutyUnits = PWM_DUTY_FRACTION;
+    params.dutyValue = 0;
+    params.periodUnits = PWM_PERIOD_HZ;
+    params.periodValue = 6e6;
+    pwm1 = PWM_open(Board_PWM2, &params);
+    if (pwm1 == NULL)
+    {
+        while (1);
+    }
 
+    PWM_start(pwm1);
+    PWM_setDuty( pwm1, PWM_DUTY_FRACTION_MAX/2);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//  I2S Bus Initialisation
+////////////////////////////////////////////////////////////////////////////////////////
+static void initI2SBus()
+{
+    i2sHandle = (I2SCC26XX_Handle)&(I2SCC26XX_config);
+    I2SCC26XX_init(i2sHandle);
+
+
+    streamVariables.streamType = BLE_AUDIO_CMD_START_MSBC;
+    streamVariables.samplesPerFrame = MSBC_SAMPLES_PER_FRAME;
+    streamVariables.notificationsPerFrame = BLEAUDIO_NUM_NOT_PER_FRAME_MSBC;
+    streamVariables.activeLED = Board_LED2;
+    streamVariables.requestedStreamType = BLE_AUDIO_CMD_NONE;
+    streamVariables.requestedStreamState = STREAM_STATE_ACTIVE;
+
+    // Allocate memory for decoded PCM data
+    pcmSamples = Memory_alloc(NULL, sizeof(int16_t) * (2*streamVariables.samplesPerFrame * I2SCC26XX_QUEUE_SIZE), 0, NULL);
+    uartSamples = Memory_alloc(NULL, sizeof(int16_t) * MSBC_SAMPLES_PER_FRAME, 0, NULL);
+    i2sParams.blockSize              = streamVariables.samplesPerFrame;
+    i2sParams.pvContBuffer           = (void *) pcmSamples;
+    i2sParams.ui32conBufTotalSize    = sizeof(int16_t) * (2*streamVariables.samplesPerFrame * I2SCC26XX_QUEUE_SIZE);
+    i2sParams.i32SampleRate = -1;
+    I2SCC26XX_Handle i2sHandleTmp = I2SCC26XX_open(i2sHandle, &i2sParams);
+}
+
+static void startI2Sstream(void)
+{
+    int st = 0;
+    if (streamVariables.streamState == STREAM_STATE_START_I2S) {
+        if (streamVariables.requestedStreamState == STREAM_STATE_ACTIVE) {
+            // Try to start I2S stream
+            i2sStreamInProgress = I2SCC26XX_startStream(i2sHandle);
+
+            if (i2sStreamInProgress) {
+                // Move to ACTIVE as we have completed start sequence
+                streamVariables.streamState = STREAM_STATE_ACTIVE;
+
+                if (streamVariables.streamType == BLE_AUDIO_CMD_START_MSBC) {
+                    st = 1;
+                    //Display_print0(dispHandle, 5, 0, "mSBC Stream");
                 }
-                totalFrameCount++;
-                currentFrameCount++;
-                if ((bufferRequest.buffer->metaData.seqNum & 0x0000000F) == 0x00)
-                {
-                }
-                else
-                {
-                    asm(" NOP");
-                }
-                if (pdmParams.applyCompression) {
-                    SA_audioFree(bufferRequest.buffer, PCM_METADATA_SIZE + AUDIO_BUF_COMPRESSED_SIZE);
-                } else {
-                    SA_audioFree(bufferRequest.buffer, PCM_METADATA_SIZE + AUDIO_BUF_UNCOMPRESSED_SIZE);
+                else if (streamVariables.streamType == BLE_AUDIO_CMD_START) {
+                    //Display_print0(dispHandle, 5, 0, "ADPCM Stream");
+                    st = 2;
                 }
             }
-        }
-        /*
-         * We close the driver after flushing samples, after stopping the stream.
-         */
-        if (saAudioState == SA_AUDIO_STOPPING) {
-            saAudioState = SA_AUDIO_IDLE;
-
-            /* Close PDM driver */
-            PDMCC26XX_close(pdmHandle);
-            pdmHandle = NULL;
-            PIN_setOutputValue(ledPinHandle, Board_PIN_LED1, 1);
-            PIN_setOutputValue(ledPinHandle, Board_PIN_LED2, 0);
-        }
-    }
-    else if (saAudioState == SA_AUDIO_IDLE)
-    {
-        // We may have received a callback for data after stopping the stream. Simply flush it.
-        while (PDMCC26XX_requestBuffer(pdmHandle, &bufferRequest)) {
-            if (pdmParams.applyCompression) {
-                SA_audioFree(bufferRequest.buffer, PCM_METADATA_SIZE + AUDIO_BUF_COMPRESSED_SIZE);
-            } else {
-                SA_audioFree(bufferRequest.buffer, PCM_METADATA_SIZE + AUDIO_BUF_UNCOMPRESSED_SIZE);
+            else {
+                //Display_print0(dispHandle, 5, 0, "Failed to start I2S stream");
+                st = 3;
             }
         }
-    }
-}
-
-/**
- *  @fn          SA_PDMCC26XX_callbackFxn
- *
- *  @brief       Application callback function to handle notifications from PDM
- *               driver.
- *
- *  @param[in]   handle - PDM driver handle
- *               pStreamNotification - voice data stream
- *  @param[out]  None
- *
- *  @return  None.
- */
-static int callbackCount = 0;
-static void SA_PDMCC26XX_callbackFxn(PDMCC26XX_Handle handle, PDMCC26XX_StreamNotification *pStreamNotification) {
-    if (pStreamNotification->status == PDMCC26XX_STREAM_BLOCK_READY) {
-        events |= SA_PCM_BLOCK_READY;
-        callbackCount++;
-    } else if (pStreamNotification->status == PDMCC26XX_STREAM_BLOCK_READY_BUT_PDM_OVERFLOW) {
-        events |= SA_PCM_BLOCK_READY;
-        events |= SA_PCM_ERROR;
-    } else if (pStreamNotification->status == PDMCC26XX_STREAM_STOPPING) {
-        events |= SA_PCM_BLOCK_READY;
-        events |= SA_PCM_ERROR;
-    } else {
-        events |= SA_PCM_ERROR;
-    }
-
-    Semaphore_post(saSem);
-}
-
-static int mallocCount = 0;
-static void *SA_audioMalloc(uint_least16_t size)
-{
-    Error_Block eb;
-    Error_init(&eb);
-    if (size > 64)
-    {
-        mallocCount++;
-    }
-    return Memory_alloc(NULL, size, 0, &eb);
-}
-
-static int freeCount = 0;
-static void SA_audioFree(void *msg, size_t size)
-{
-    if (size > 64)
-    {
-        freeCount++;
-    }
-    Memory_free(NULL, msg, size);
-}
-
-
-/*
- *  ======== buttonCallbackFxn ========
- *  Pin interrupt Callback function board buttons configured in the pinTable.
- *  If Board_PIN_LED3 and Board_PIN_LED4 are defined, then we'll add them to the PIN
- *  callback function.
- */
-void buttonCallbackFxn(PIN_Handle handle, PIN_Id pinId) {
-    if (!processingButtonPress)
-    {
-        /*
-         * Debounce logic is implemented in the task.
-         * Disable interrupts while debouncing
-         */
-        PIN_setInterrupt(handle, pinId | PIN_IRQ_DIS);
-        pendingPinId = pinId;
-        events |= SA_BUTTON_EVENT;
-        if (Semaphore_getCount(saSem) == 0) {
-            processingButtonPress = true;
-            Semaphore_post(saSem);
+        else {
+            //Display_print0(dispHandle, 5, 0, "Started stream when Active was not requested");
+            st = 4;
         }
     }
 }
