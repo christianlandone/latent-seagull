@@ -15,6 +15,7 @@ ORDERED_OBJS += \
 "./CC1350_LAUNCHXL.obj" \
 "./ccfg.obj" \
 "./main_tirtos.obj" \
+"./G722/G722_64_Encoder.obj" \
 "./I2C/SensorI2C.obj" \
 "./I2SDrv/I2SCC26XX.obj" \
 "./rfsettings/smartrf_settings.obj" \
@@ -38,10 +39,12 @@ RMDIR := RMDIR /S/Q
 # All of the sources participating in the build are defined here
 -include sources.mk
 -include subdir_vars.mk
+-include G722/subdir_vars.mk
 -include I2C/subdir_vars.mk
 -include I2SDrv/subdir_vars.mk
 -include rfsettings/subdir_vars.mk
 -include subdir_rules.mk
+-include G722/subdir_rules.mk
 -include I2C/subdir_rules.mk
 -include I2SDrv/subdir_rules.mk
 -include rfsettings/subdir_rules.mk
@@ -164,7 +167,7 @@ dependents:
 Alto_I2S.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS) C:/Users/chris/Desktop/Proj/Commesh/software/latent-seagull/tirtos_builds_CC1350_LAUNCHXL_release_ccs/Debug/tirtos_builds_CC1350_LAUNCHXL_release_ccs.lib
 	@echo 'Building target: $@'
 	@echo 'Invoking: ARM Linker'
-	"C:/ti/ccs720/ccsv7/tools/compiler/ti-cgt-arm_16.9.4.LTS/bin/armcl" -mv7M3 --code_state=16 --float_support=vfplib -me --define=DeviceFamily_CC13X0 -g --diag_warning=225 --diag_warning=255 --diag_wrap=off --display_error_number --gen_func_subsections=on -z -m"Alto_I2S.map" -i"C:/ti/ccs720/ccsv7/tools/compiler/ti-cgt-arm_16.9.4.LTS/lib" -i"C:/ti/ccs720/ccsv7/tools/compiler/ti-cgt-arm_16.9.4.LTS/include" --reread_libs --diag_wrap=off --display_error_number --warn_sections --xml_link_info="Alto_I2S_linkInfo.xml" --rom_model -o "Alto_I2S.out" $(ORDERED_OBJS)
+	"C:/ti/ccs720/ccsv7/tools/compiler/ti-cgt-arm_16.9.4.LTS/bin/armcl" -mv7M3 --code_state=16 --float_support=vfplib -me --define=DeviceFamily_CC13X0 --define=TI_DRIVERS_UART_DMA=1 -g --diag_warning=225 --diag_warning=255 --diag_wrap=off --display_error_number --gen_func_subsections=on -z -m"Alto_I2S.map" -i"C:/ti/ccs720/ccsv7/tools/compiler/ti-cgt-arm_16.9.4.LTS/lib" -i"C:/ti/ccs720/ccsv7/tools/compiler/ti-cgt-arm_16.9.4.LTS/include" --reread_libs --diag_wrap=off --display_error_number --warn_sections --xml_link_info="Alto_I2S_linkInfo.xml" --rom_model -o "Alto_I2S.out" $(ORDERED_OBJS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -177,8 +180,8 @@ Alto_I2S.hex: $(EXE_OUTPUTS)
 # Other Targets
 clean:
 	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "CC1350_LAUNCHXL.obj" "ccfg.obj" "main_tirtos.obj" "I2C\SensorI2C.obj" "I2SDrv\I2SCC26XX.obj" "rfsettings\smartrf_settings.obj" 
-	-$(RM) "CC1350_LAUNCHXL.d" "ccfg.d" "main_tirtos.d" "I2C\SensorI2C.d" "I2SDrv\I2SCC26XX.d" "rfsettings\smartrf_settings.d" 
+	-$(RM) "CC1350_LAUNCHXL.obj" "ccfg.obj" "main_tirtos.obj" "G722\G722_64_Encoder.obj" "I2C\SensorI2C.obj" "I2SDrv\I2SCC26XX.obj" "rfsettings\smartrf_settings.obj" 
+	-$(RM) "CC1350_LAUNCHXL.d" "ccfg.d" "main_tirtos.d" "G722\G722_64_Encoder.d" "I2C\SensorI2C.d" "I2SDrv\I2SCC26XX.d" "rfsettings\smartrf_settings.d" 
 	-@echo 'Finished clean'
 	-@echo ' '
 

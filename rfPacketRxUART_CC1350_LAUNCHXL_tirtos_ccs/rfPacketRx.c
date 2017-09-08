@@ -476,11 +476,7 @@ int main(void)
     RxTask_init(ledPinHandle);
 
     /* Initialize task */
-    /*TxTask_init(ledPinHandle);*/
-
     UartRxTask_init(ledPinHandle);
-
-    //UartTxTask_init(ledPinHandle);
 
     /* Start BIOS */
     BIOS_start();
@@ -497,16 +493,7 @@ int main(void)
 
 void uart_writePayLoad(uint8_t *packet, uint16_t length)
 {
-    /*char output[2];*/
-
-    /*UART_write(uart, "rx data: ", 9);*/
     UART_write(uart, packet, length);
-
-    /* Output a carriage return */
-    /*
-    output[0] = CHAR_LINE_END_1;
-    UART_write(uart, output, 1);*/
-
 }
 
 

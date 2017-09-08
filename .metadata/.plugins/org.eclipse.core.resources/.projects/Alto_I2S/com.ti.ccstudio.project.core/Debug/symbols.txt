@@ -1,6 +1,6 @@
 #define __unsigned_chars__ 1	/* Predefined */
-#define __DATE__ "Aug 31 2017"	/* Predefined */
-#define __TIME__ "19:36:14"	/* Predefined */
+#define __DATE__ "Sep  5 2017"	/* Predefined */
+#define __TIME__ "14:21:39"	/* Predefined */
 #define __STDC__ 1	/* Predefined */
 #define __STDC_VERSION__ 199409L	/* Predefined */
 #define __TI_C99_COMPLEX_ENABLED__ 1	/* Predefined */
@@ -35,3 +35,4 @@
 #define __TI_STRICT_FP_MODE__ 1	/* Predefined */
 #define _OPTIMIZE_FOR_SPACE 1
 #define DeviceFamily_CC13X0 1
+#define TI_DRIVERS_UART_DMA 1

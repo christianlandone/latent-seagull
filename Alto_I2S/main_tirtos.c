@@ -27,6 +27,10 @@
 #include "I2C/CS42L55.h"
 #include "I2SDrv/I2SCC26XX.h"
 
+/* Encoder */
+#include "G722/G722_64_Encoder.h"
+
+
 #include <stdint.h>
 #include <unistd.h>
 
@@ -90,14 +94,9 @@ PIN_Config buttonPinTable[] = {
     PIN_TERMINATE
 };
 
-#define BLEAUDIO_BUFSIZE_ADPCM            96
-#define BLEAUDIO_HDRSIZE_ADPCM            4
-#define BLEAUDIO_NUM_NOT_PER_FRAME_ADPCM  5
 #define BLEAUDIO_NUM_NOT_PER_FRAME_MSBC   3
 
-#define ADPCM_SAMPLES_PER_FRAME   (BLEAUDIO_BUFSIZE_ADPCM * 2)
-#define MSBC_SAMPLES_PER_FRAME    40
-#define MSBC_ENCODED_SIZE          57
+#define MSBC_SAMPLES_PER_FRAME    80
 
 typedef enum {
   STREAM_STATE_IDLE,
@@ -108,8 +107,12 @@ typedef enum {
   STREAM_STATE_STOP_I2S,
 } STREAM_STATE_E;
 
+G722ENCODER encoder;
+
 int16_t *pcmSamples;
-uint16_t *uartSamples;
+int16_t *uartSamples;
+uint16_t *encodedSamples;
+uint16_t *packedSamples;
 
 uint8_t i2sContMgtBuffer[I2S_BLOCK_OVERHEAD_IN_BYTES * I2SCC26XX_QUEUE_SIZE] = {0};
 
@@ -157,8 +160,10 @@ static void startI2Sstream();
 
 static void taskFxnI2S(UArg arg0, UArg arg1)
 {
-    uint32_t hwiKey;
     int16_t idx;
+    int readData;
+
+    adpcm64_encode_init(&encoder);
 
     //UART stream
     UART_Handle uartHandle;
@@ -209,8 +214,6 @@ static void taskFxnI2S(UArg arg0, UArg arg1)
             while (gotBuffer)
             {
                 // Flush on UART
-
-
                 int16_t* pb = (int16_t*)bufferRequest.bufferIn;
 
                 for(idx = 0; idx < streamVariables.samplesPerFrame; idx++ )
@@ -218,31 +221,17 @@ static void taskFxnI2S(UArg arg0, UArg arg1)
                     uartSamples[idx] = pb[2*idx+1];
                 }
 
-                UART_write(uartHandle, (uint8_t*)uartSamples , MSBC_SAMPLES_PER_FRAME* sizeof(int16_t));//streamVariables.samplesPerFrame * sizeof(int16_t));
+                readData = adpcm64_encode_run(&encoder, uartSamples, encodedSamples, MSBC_SAMPLES_PER_FRAME);
+                readData = adpcm64_pack_vadim(encodedSamples, packedSamples, readData);
+                UART_write(uartHandle, (uint8_t*)packedSamples , readData* sizeof(int16_t));//streamVariables.samplesPerFrame * sizeof(int16_t));
 
+//                UART_write(uartHandle, (uint8_t*)uartSamples , MSBC_SAMPLES_PER_FRAME* sizeof(int16_t));//streamVariables.samplesPerFrame * sizeof(int16_t));
 
-                //UART_write(uartHandle, bufferRequest.bufferIn, MSBC_SAMPLES_PER_FRAME);//streamVariables.samplesPerFrame * sizeof(int16_t));
-                //PIN_setOutputValue(ledPinHandle, Board_PIN_LED1,!PIN_getOutputValue(Board_PIN_LED1));
-                /*
-                if (streamVariables.streamType == BLE_AUDIO_CMD_START_MSBC) {
-                    sbc_encode(&sbc, (int16_t *)bufferRequest.bufferIn, streamVariables.samplesPerFrame * sizeof(int16_t), audio_encoded, MSBC_ENCODED_SIZE, &written);
-                    audio_encoded[1] = seqNum++;
-                }
-                else {
-                  audio_encoded[0] = (((seqNum++ % 32) << 3) | RAS_DATA_TIC1_CMD);
-                  // Send previous PV and SI
-                  audio_encoded[1] = streamVariables.si;
-                  audio_encoded[2] = LO_UINT16(streamVariables.pv);
-                  audio_encoded[3] = HI_UINT16(streamVariables.pv);
-                  Codec1_encodeBuff((uint8_t *)&audio_encoded[4], (int16_t *)bufferRequest.bufferIn, streamVariables.samplesPerFrame, &streamVariables.si, &streamVariables.pv);
-              }
-              SimpleBLEPeripheral_transmitAudioFrame(audio_encoded);
-              PIN_setOutputValue( hSbpPins, Board_DIO26_ANALOG, 1);*/
-              bufferRelease.bufferHandleIn = bufferRequest.bufferHandleIn;
-              bufferRelease.bufferHandleOut = NULL;
-              I2SCC26XX_releaseBuffer(i2sHandle, &bufferRelease);
+                bufferRelease.bufferHandleIn = bufferRequest.bufferHandleIn;
+                bufferRelease.bufferHandleOut = NULL;
+                I2SCC26XX_releaseBuffer(i2sHandle, &bufferRelease);
 
-              gotBuffer = I2SCC26XX_requestBuffer(i2sHandle, &bufferRequest);
+                gotBuffer = I2SCC26XX_requestBuffer(i2sHandle, &bufferRequest);
             }
           }
         }
@@ -516,9 +505,15 @@ static void initI2SBus()
     streamVariables.requestedStreamType = BLE_AUDIO_CMD_NONE;
     streamVariables.requestedStreamState = STREAM_STATE_ACTIVE;
 
+    //initialise i2s parameters
+    I2SCC26XX_Params_init( &i2sParams, I2SCC26XX_I2S, NULL );
+
     // Allocate memory for decoded PCM data
     pcmSamples = Memory_alloc(NULL, sizeof(int16_t) * (2*streamVariables.samplesPerFrame * I2SCC26XX_QUEUE_SIZE), 0, NULL);
     uartSamples = Memory_alloc(NULL, sizeof(int16_t) * MSBC_SAMPLES_PER_FRAME, 0, NULL);
+    encodedSamples = Memory_alloc(NULL, sizeof(uint16_t) * MSBC_SAMPLES_PER_FRAME/2, 0, NULL);
+    packedSamples = Memory_alloc(NULL, sizeof(uint16_t) * 5*(MSBC_SAMPLES_PER_FRAME/8), 0, NULL);
+
     i2sParams.blockSize              = streamVariables.samplesPerFrame;
     i2sParams.pvContBuffer           = (void *) pcmSamples;
     i2sParams.ui32conBufTotalSize    = sizeof(int16_t) * (2*streamVariables.samplesPerFrame * I2SCC26XX_QUEUE_SIZE);
@@ -528,7 +523,6 @@ static void initI2SBus()
 
 static void startI2Sstream(void)
 {
-    int st = 0;
     if (streamVariables.streamState == STREAM_STATE_START_I2S) {
         if (streamVariables.requestedStreamState == STREAM_STATE_ACTIVE) {
             // Try to start I2S stream
@@ -537,24 +531,13 @@ static void startI2Sstream(void)
             if (i2sStreamInProgress) {
                 // Move to ACTIVE as we have completed start sequence
                 streamVariables.streamState = STREAM_STATE_ACTIVE;
-
-                if (streamVariables.streamType == BLE_AUDIO_CMD_START_MSBC) {
-                    st = 1;
-                    //Display_print0(dispHandle, 5, 0, "mSBC Stream");
-                }
-                else if (streamVariables.streamType == BLE_AUDIO_CMD_START) {
-                    //Display_print0(dispHandle, 5, 0, "ADPCM Stream");
-                    st = 2;
-                }
             }
             else {
                 //Display_print0(dispHandle, 5, 0, "Failed to start I2S stream");
-                st = 3;
             }
         }
         else {
             //Display_print0(dispHandle, 5, 0, "Started stream when Active was not requested");
-            st = 4;
         }
     }
 }
