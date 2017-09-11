@@ -89,12 +89,11 @@ PIN_Config pinTable[] =
                                    * Max 30 payload bytes
                                    * 1 status byte (RF_cmdPropRx.rxConf.bAppendStatus = 0x1) */
 
-
 /***** Defines *****/
 #define RADIO_RX_TASK_STACK_SIZE 2048
 #define RADIO_RX_TASK_PRIORITY   1
 
-#define UART_RX_TASK_STACK_SIZE 2048
+#define UART_RX_TASK_STACK_SIZE 1024
 #define UART_RX_TASK_PRIORITY   2
 
 
@@ -206,12 +205,13 @@ static void radioRxTaskFunction(UArg arg0, UArg arg1)
     RF_cmdPropRxAdv.pktConf.bRepeatNok = 1;
 
     if (!rfHandle) {
-        /* Request access to the radio */
+        // Request access to the radio
         rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
 
-        /* Set the frequency */
+        //Set the frequency
         RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
 
+        // initialise SB-ADPC Decoder
         adpcm64_decode_init(&audio_decoder);
     }
 
@@ -227,7 +227,6 @@ static void radioRxTaskFunction(UArg arg0, UArg arg1)
 static void radioRxCallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
 {
     int readData0,readData1;
-    int i;
 
     if (e & RF_EventRxEntryDone)
     {
@@ -243,8 +242,6 @@ static void radioRxCallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         packetLength      = ADPCM_FRAME_SIZE;
         packetDataPointer = (uint8_t*)(&currentDataEntry->data);
 
-        //memcpy( encodedData, packetDataPointer, packetLength);
-
         readData0 = adpcm64_unpack_vadim((uint16_t*)packetDataPointer, unpackedData, packetLength/2);
         readData1 = adpcm64_decode_run(&audio_decoder, unpackedData, pcmData, readData0);
 
@@ -258,18 +255,12 @@ static void radioRxCallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
 
 static void uartRxTaskFunction(UArg arg0, UArg arg1)
 {
-    /*
-    int readData0 = 0;
-    int readData1 = 0;
-    int i = 0;
-    */
-
-    int encodedSize = ADPCM_FRAME_SIZE;
+    int bytesToUart = 0;
 
     if (uart == NULL) {
         /* Create a UART with data processing off. */
         uartConfigure();
-        adpcm64_decode_init(&audio_decoder);
+        bytesToUart = (ADPCM_FRAME_SIZE * 16)/5;
 
         if (uart == NULL) {
             System_abort("Error opening the UART");
@@ -277,25 +268,11 @@ static void uartRxTaskFunction(UArg arg0, UArg arg1)
     }
 
     while (1) {
-
-        /*
-        for( i = 0; i < encodedSize; i++ )
-        {
-            encodedData[i] = (uint8_t)rand();
-        }
-
-        readData0 = adpcm64_unpack_vadim((uint16_t*)encodedData, unpackedData, encodedSize/2);
-        readData1 = adpcm64_decode_run(&audio_decoder, unpackedData, pcmData, readData0);
-        UART_write(uart, pcmData, sizeof(int16_t)*readData1);
-*/
-
         Semaphore_pend(semUartRxHandle, BIOS_WAIT_FOREVER);
         if (packetReady) {
-            //uart_writePayLoad((uint8_t*)unpackedData, 96);
-            uart_writePayLoad((uint8_t*)pcmData, 192);
+            uart_writePayLoad((uint8_t*)pcmData, bytesToUart);
             packetReady = 0;
         }
-
     }
 }
 
@@ -350,7 +327,7 @@ static void uartConfigure()
     uartParams.readDataMode = UART_DATA_BINARY;
     uartParams.readReturnMode = UART_RETURN_FULL;
     uartParams.readEcho = UART_ECHO_OFF;
-    uartParams.baudRate = 921600;//460800;
+    uartParams.baudRate = 921600;
     uart = UART_open(Board_UART0, &uartParams);
 }
 
@@ -362,8 +339,8 @@ void uart_writePayLoad(uint8_t *packet, uint16_t length)
 
 static bool CreateAudioBuffers()
 {
-    int encodedSize = 2*ADPCM_FRAME_SIZE;
-    int unpackedSize = (encodedSize * 16)/5;
+    int encodedSize = ADPCM_FRAME_SIZE;
+    int unpackedSize = (encodedSize * 8)/5;
     int decodedSize = unpackedSize * 2;
 
     encodedData = Memory_alloc(NULL, encodedSize, 0, NULL);

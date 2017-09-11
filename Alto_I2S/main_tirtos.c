@@ -151,14 +151,15 @@ static I2SCC26XX_Params i2sParams = {
 
 static bool i2sStreamInProgress = false;
 
-static void initCodec();
+static void initCodecADC();
 static void initPWM_MClk();
-static void initI2SBus();
-static void startI2Sstream();
+
+static void initI2SBus_In();
+static void startI2SStream_In();
 
 
 
-static void taskFxnI2S(UArg arg0, UArg arg1)
+static void taskFxnI2S_In(UArg arg0, UArg arg1)
 {
     int16_t idx;
     int readData;
@@ -169,13 +170,13 @@ static void taskFxnI2S(UArg arg0, UArg arg1)
     UART_Handle uartHandle;
     UART_Params uartParams;
 
-    initCodec();
+    initCodecADC();
     initPWM_MClk();
 
-    initI2SBus();
+    initI2SBus_In();
     streamVariables.streamState = STREAM_STATE_START_I2S;
     streamVariables.requestedStreamState = STREAM_STATE_ACTIVE;
-    startI2Sstream();
+    startI2SStream_In();
 
 
 
@@ -188,8 +189,6 @@ static void taskFxnI2S(UArg arg0, UArg arg1)
     uartParams.baudRate = 460800;
 
     uartHandle = UART_open(Board_UART0, &uartParams);
-
-    //usleep(250000);
 
     while (1)
     {
@@ -225,7 +224,7 @@ static void taskFxnI2S(UArg arg0, UArg arg1)
                 readData = adpcm64_pack_vadim(encodedSamples, packedSamples, readData);
                 UART_write(uartHandle, (uint8_t*)packedSamples , readData* sizeof(int16_t));//streamVariables.samplesPerFrame * sizeof(int16_t));
 
-//                UART_write(uartHandle, (uint8_t*)uartSamples , MSBC_SAMPLES_PER_FRAME* sizeof(int16_t));//streamVariables.samplesPerFrame * sizeof(int16_t));
+4rl;weeeeezx=-g5//                UART_write(uartHandle, (uint8_t*)uartSamples , MSBC_SAMPLES_PER_FRAME* sizeof(int16_t));
 
                 bufferRelease.bufferHandleIn = bufferRequest.bufferHandleIn;
                 bufferRelease.bufferHandleOut = NULL;
@@ -271,7 +270,7 @@ int main(void) {
     taskParams.priority = 1;
     taskParams.stackSize = TASKSTACKSIZE;
     taskParams.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr)taskFxnI2S, &taskParams, NULL);
+    Task_construct(&task0Struct, (Task_FuncPtr)taskFxnI2S_In, &taskParams, NULL);
 
 
     /* Open LED pins */
@@ -316,7 +315,7 @@ static void i2sCallbackFxn(I2SCC26XX_Handle handle, I2SCC26XX_StreamNotification
 ////////////////////////////////////////////////////////////////////////////////////////
 //  Audio codec init
 ////////////////////////////////////////////////////////////////////////////////////////
-static void initCodec()
+static void initCodecADC()
 {
     uint8_t devAddress = 0x4A;
     uint8_t regAddress = 0x00;
@@ -492,7 +491,7 @@ static void initPWM_MClk()
 ////////////////////////////////////////////////////////////////////////////////////////
 //  I2S Bus Initialisation
 ////////////////////////////////////////////////////////////////////////////////////////
-static void initI2SBus()
+static void initI2SBus_In()
 {
     i2sHandle = (I2SCC26XX_Handle)&(I2SCC26XX_config);
     I2SCC26XX_init(i2sHandle);
@@ -521,7 +520,7 @@ static void initI2SBus()
     I2SCC26XX_Handle i2sHandleTmp = I2SCC26XX_open(i2sHandle, &i2sParams);
 }
 
-static void startI2Sstream(void)
+static void startI2SStream_In(void)
 {
     if (streamVariables.streamState == STREAM_STATE_START_I2S) {
         if (streamVariables.requestedStreamState == STREAM_STATE_ACTIVE) {

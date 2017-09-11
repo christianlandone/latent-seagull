@@ -1,7 +1,7 @@
 ******************************************************************************
                   TI ARM Linker PC v16.9.3                     
 ******************************************************************************
->> Linked Wed Sep 06 08:53:12 2017
+>> Linked Mon Sep 11 11:04:19 2017
 
 OUTPUT FILE NAME:   <pdmUART.out>
 ENTRY POINT SYMBOL: "ResetISR"  address: 00007e2d
@@ -1263,8 +1263,8 @@ section   page    origin      length       input sections
 *          0    00000000    00000008     DSECT
                   00000000    00000008     boot.aem3 : boot.oem3 (.bootVecs)
 
-xdc.meta   0    00000000    0000011f     COPY SECTION
-                  00000000    0000011f     release_pem3.oem3 (xdc.meta)
+xdc.meta   0    00000000    0000011d     COPY SECTION
+                  00000000    0000011d     release_pem3.oem3 (xdc.meta)
 
 xdc.noload 
 *          0    00000000    00000000     COPY SECTION
@@ -1285,7 +1285,7 @@ MODULE SUMMARY
     +--+---------------------------------+-------+---------+---------+
        Total:                            446     2404      208    
                                                                   
-    C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tirtos_builds_CC1350STK_release_ccs\Release\configPkg\package\cfg\
+    C:\Users\chris\Desktop\Proj\Commesh\software\latent-seagull\tirtos_builds_CC1350STK_release_ccs\Debug\configPkg\package\cfg\
        release_pem3.oem3                 832     1555      1750   
     +--+---------------------------------+-------+---------+---------+
        Total:                            832     1555      1750   
@@ -1900,11 +1900,11 @@ UNDEFED   SwiP_restore
 00007f79  UART_open                                                                 
 00000dc2  Watchdog_count                                                            
 00000000  __ASM__                                                                   
-00000099  __ISA__                                                                   
-000000ab  __PLAT__                                                                  
+00000097  __ISA__                                                                   
+000000a9  __PLAT__                                                                  
 20005000  __STACK_END                                                               
 00000400  __STACK_SIZE                                                              
-000000d2  __TARG__                                                                  
+000000d0  __TARG__                                                                  
 00009a08  __TI_CINIT_Base                                                           
 00009a68  __TI_CINIT_Limit                                                          
 000099c4  __TI_Handler_Table_Base                                                   
@@ -1917,7 +1917,7 @@ ffffffff  __TI_prof_data_size
 ffffffff  __TI_prof_data_start                                                      
 00009760  __TI_static_base__                                                        
 00009445  __TI_zero_init                                                            
-000000f7  __TRDR__                                                                  
+000000f5  __TRDR__                                                                  
 00006b5d  __aeabi_cdcmpeq                                                           
 00006b5d  __aeabi_cdcmple                                                           
 00006be3  __aeabi_cdrcmple                                                          
@@ -2583,10 +2583,10 @@ address   name
 00000000  ti_sysbios_family_arm_m3_Hwi_resetVectors                                 
 00000001  xdc_runtime_Startup__EXECFXN__C                                           
 00000001  xdc_runtime_Startup__RESETFXN__C                                          
-00000099  __ISA__                                                                   
-000000ab  __PLAT__                                                                  
-000000d2  __TARG__                                                                  
-000000f7  __TRDR__                                                                  
+00000097  __ISA__                                                                   
+000000a9  __PLAT__                                                                  
+000000d0  __TARG__                                                                  
+000000f5  __TRDR__                                                                  
 00000400  __STACK_SIZE                                                              
 00000a90  PDMCC26XX_defaultParams                                                   
 00000b20  BoardGpioInitTable                                                        

@@ -1,16 +1,10 @@
-/*****************************************************************************
- *   pmu.h:  Header file for NXP LPC134x Family Microprocessors
- *
- *   Copyright(C) 2008, NXP Semiconductor
- *   All rights reserved.
- *
- *   History
- *   2008.09.01  ver 1.00    Preliminary version, first Release
- *
-******************************************************************************/
 #ifndef __CS42L55_H 
 #define __CS42L55_H
 
+/* TI-RTOS Header files */
+#include <ti/drivers/PIN.h>
+
+#include "I2C/SensorI2C.h"
 
 #define DEV_CS42L55	0x94
 
@@ -194,8 +188,7 @@
 #define HPFA_CF10                               0x02
 #define HPFA_CF11                               0x03
 
-extern void init_i2c_cs42l55();
-extern void init_spi_cs42l55();
+extern void initADCDevice( PIN_Handle enablePin );
 #endif /* end CS42L55 */
 /*****************************************************************************
 **                            End Of File

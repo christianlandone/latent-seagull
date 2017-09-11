@@ -1,7 +1,7 @@
 ******************************************************************************
                   TI ARM Linker PC v16.9.4                     
 ******************************************************************************
->> Linked Mon Sep 04 23:55:38 2017
+>> Linked Sat Sep 09 12:16:50 2017
 
 OUTPUT FILE NAME:   <Alto_I2S.out>
 ENTRY POINT SYMBOL: "ResetISR"  address: 00007f61
@@ -266,7 +266,7 @@ section   page    origin      length       input sections
                   00003674    00000228     driverlib.lib : sys_ctrl.obj (.text:NOROM_SysCtrlSetRechargeBeforePowerDown)
                   0000389c    0000021c     drivers_cc13x0.aem3 : PowerCC26XX.oem3 (.text:Power_sleep)
                   00003ab8    000001f4     rtsv7M3_T_le_eabi.lib : ull_div_t2.obj (.text)
-                  00003cac    000001e4     main_tirtos.obj (.text:initCodec)
+                  00003cac    000001e4     main_tirtos.obj (.text:initCodecADC)
                   00003e90    000001b6     rtsv7M3_T_le_eabi.lib : fd_add_t2.obj (.text)
                   00004046    00000002     drivers_cc13x0.aem3 : PWMTimerCC26XX.oem3 (.text:PWMTimerCC26XX_init)
                   00004048    000001ac     I2SCC26XX.obj (.text:I2SCC26XX_initIO)

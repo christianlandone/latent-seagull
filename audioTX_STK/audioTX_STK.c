@@ -23,9 +23,9 @@
 
 /* Example/Board Header files */
 #include "Board.h"
-//#include "I2C/SensorI2C.h"
-#include "I2C/CS42L55.h"
-#include "I2SDrv/I2SCC26XX.h"
+
+/* PDM Driver */
+#include <ti/drivers/pdm/PDMCC26XX.h>
 
 /* Encoder */
 #include "G722/G722_64_Encoder.h"
@@ -70,7 +70,7 @@ static PIN_Handle ledPinHandle;
 PIN_Config ledPinTable[] = {
     Board_PIN_LED1 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
     Board_PIN_LED2 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
-    Board_DIO15 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+    //Board_DIO15 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
     PIN_TERMINATE
 };
 
@@ -96,7 +96,14 @@ static int16_t *ChannelSamples;
 static uint16_t *encodedSamples;
 static uint16_t *packedSamples;
 
-uint8_t i2sContMgtBuffer[I2S_BLOCK_OVERHEAD_IN_BYTES * I2SCC26XX_QUEUE_SIZE] = {0};
+/* SA PDM drivers related */
+static PDMCC26XX_Handle pdmHandle = NULL;
+static void pdmCallbackFxn(PDMCC26XX_Handle handle,PDMCC26XX_StreamNotification *streamNotification);
+static void *SA_audioMalloc(uint_least16_t size);
+static void SA_audioFree(void *msg, size_t size);
+PDMCC26XX_Params pdmParams;
+static int16_t dGain;
+
 
 //ssize_t written = 0;
 struct {
@@ -106,32 +113,12 @@ struct {
 } streamVariables = {STREAM_STATE_IDLE, 0, 0};
 
 
-static I2SCC26XX_Handle i2sHandle = NULL;
-static I2SCC26XX_StreamNotification i2sStream;
-
-
 static void processAudioFrame();
 static bool startAudioStream();
 static void stopAudioStream();
 
-static void i2sCallbackFxn(I2SCC26XX_Handle handle, I2SCC26XX_StreamNotification *notification);
-
-
-static I2SCC26XX_Params i2sParams = {
-  .requestMode            = I2SCC26XX_CALLBACK_MODE,
-  .ui32requestTimeout     = BIOS_WAIT_FOREVER,
-  .callbackFxn            = i2sCallbackFxn,
-  .blockSize              = PCM_SAMPLES_PER_FRAME,
-  .pvContBuffer           = NULL,
-  .ui32conBufTotalSize    = 0,
-  .pvContMgtBuffer        = (void *) i2sContMgtBuffer,
-  .ui32conMgtBufTotalSize = sizeof(i2sContMgtBuffer),
-  .currentStream          = &i2sStream
-};
-
 static bool audioStreamInProgress = false;
 
-static void initPWM_MClk();
 static bool initAudioBus();
 static bool createAudioBuffers();
 static void destroyAudioBuffers();
@@ -245,62 +232,50 @@ main(void) {
     return (0);
 }
 
-static void i2sCallbackFxn(I2SCC26XX_Handle handle, I2SCC26XX_StreamNotification *notification)
+
+static void pdmCallbackFxn(PDMCC26XX_Handle handle, PDMCC26XX_StreamNotification *pStreamNotification)
 {
-    if (notification->status == I2SCC26XX_STREAM_ERROR)
+    if (pStreamNotification->status == PDMCC26XX_STREAM_BLOCK_READY)
+    {
+        events |= IGOTX_AUDIO_FRAME_EVENT;
+    }
+    else if (pStreamNotification->status == PDMCC26XX_STREAM_BLOCK_READY_BUT_PDM_OVERFLOW)
+    {
+        events |= IGOTX_AUDIO_FRAME_EVENT;
+        events |= IGOTX_AUDIO_ERROR_EVENT;
+    }
+    else if (pStreamNotification->status == PDMCC26XX_STREAM_STOPPING)
+    {
+        events |= IGOTX_AUDIO_FRAME_EVENT;
+        events |= IGOTX_AUDIO_ERROR_EVENT;
+    } else
     {
         events |= IGOTX_AUDIO_ERROR_EVENT;
-        Semaphore_post(AS_Sem);
     }
-    else if (notification->status == I2SCC26XX_STREAM_BUFFER_READY)
-    {
-        // Provide buffer
-        events |= IGOTX_AUDIO_FRAME_EVENT;
-        Semaphore_post(AS_Sem);
-    }
+
+    Semaphore_post(AS_Sem);
 }
 
-
-////////////////////////////////////////////////////////////////////////////////////////
-//  Stand alonee MCLK generation
-////////////////////////////////////////////////////////////////////////////////////////
-static void initPWM_MClk()
-{
-    ///////////////////////////////////////////////////////////////
-    //start pwm on pin 12
-    PWM_Handle pwm1 = NULL;
-    PWM_Params params;
-
-    PWM_init();
-
-    PWM_Params_init(&params);
-    params.dutyUnits = PWM_DUTY_FRACTION;
-    params.dutyValue = 0;
-    params.periodUnits = PWM_PERIOD_HZ;
-    params.periodValue = 6e6;
-    pwm1 = PWM_open(Board_PWM2, &params);
-    if (pwm1 == NULL)
-    {
-        while (1);
-    }
-
-    PWM_start(pwm1);
-    PWM_setDuty( pwm1, PWM_DUTY_FRACTION_MAX/2);
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //  Audio Bus Initialisation
 ////////////////////////////////////////////////////////////////////////////////////////
 static bool initAudioBus()
 {
-    i2sHandle = (I2SCC26XX_Handle)&(I2SCC26XX_config);
-    I2SCC26XX_init(i2sHandle);
+    /* Initialize PDM driver (invokes I2S) */
+    PDMCC26XX_init((PDMCC26XX_Handle) &(PDMCC26XX_config));
 
-    //configure device
-    initADCDevice(ledPinHandle);
+    PDMCC26XX_Params_init(&pdmParams);
+    pdmParams.callbackFxn = pdmCallbackFxn;
+    pdmParams.micGain = PDMCC26XX_GAIN_24;
+    pdmParams.applyCompression = false;
+    pdmParams.startupDelayWithClockInSamples = 512;
+    pdmParams.retBufSizeInBytes = 2* PCM_SAMPLES_PER_FRAME + PCM_METADATA_SIZE;
+    pdmParams.mallocFxn = (PDMCC26XX_MallocFxn) SA_audioMalloc;
+    pdmParams.freeFxn = (PDMCC26XX_FreeFxn) SA_audioFree;
+    //pdmParams.pdmBufferQueueDepth = 8;
 
-    // start external MCLK
-    initPWM_MClk();
+    pdmHandle = PDMCC26XX_open(&pdmParams);
 
     streamVariables.streamType = AUDIO_G722_P1;
     streamVariables.samplesPerFrame = PCM_SAMPLES_PER_FRAME;
@@ -310,14 +285,6 @@ static bool initAudioBus()
         return false;
     }
 
-    //initialise i2s parameters
-    I2SCC26XX_Params_init( &i2sParams, I2SCC26XX_I2S, NULL );
-
-    i2sParams.blockSize              = streamVariables.samplesPerFrame;
-    i2sParams.pvContBuffer           = (void *) pcmSamples;
-    i2sParams.ui32conBufTotalSize    = sizeof(int16_t) * (2*streamVariables.samplesPerFrame * I2SCC26XX_QUEUE_SIZE);
-    i2sParams.i32SampleRate = -1;
-    I2SCC26XX_Handle i2sHandleTmp = I2SCC26XX_open(i2sHandle, &i2sParams);
 
     return true;
 }
@@ -333,7 +300,7 @@ static bool startAudioStream()
     streamVariables.streamState = STREAM_STATE_STARTING;
 
     // Try to start I2S stream
-    if (!I2SCC26XX_startStream(i2sHandle)){
+    if (!PDMCC26XX_startStream(pdmHandle)){
         return false;
     }
 
@@ -344,11 +311,11 @@ static bool startAudioStream()
 
 static void stopAudioStream()
 {
-    if ((streamVariables.streamState != STREAM_STATE_IDLE) && (i2sHandle))
+    if ((streamVariables.streamState != STREAM_STATE_IDLE) && (pdmHandle))
     {
         streamVariables.streamState = STREAM_STATE_STOPPING;
         /* Stop PDM stream */
-        I2SCC26XX_stopStream(i2sHandle);
+        PDMCC26XX_stopStream(pdmHandle);;
 
         /* In case no more callbacks will be made, attempt to flush remaining data now. */
         events |= IGOTX_AUDIO_FRAME_EVENT;;
@@ -359,30 +326,29 @@ static void processAudioFrame()
 {
     int16_t idx;
     int readData;
-    I2SCC26XX_BufferRequest bufferRequest;
-    I2SCC26XX_BufferRelease bufferRelease;
-    bool gotBuffer = I2SCC26XX_requestBuffer(i2sHandle, &bufferRequest);
+    PDMCC26XX_BufferRequest bufferRequest;
 
-    while (gotBuffer)
+    dGain = 6;
+
+    while (PDMCC26XX_requestBuffer(pdmHandle, &bufferRequest))
     {
-        int16_t* pb = (int16_t*)bufferRequest.bufferIn;
-
-        for(idx = 0; idx < streamVariables.samplesPerFrame; idx++ )
+        if (bufferRequest.status == PDMCC26XX_STREAM_BLOCK_READY)
         {
-            ChannelSamples[idx] = pb[2*idx+1];
+            int16_t* pb = (int16_t*)bufferRequest.buffer->pBuffer;
+
+            for( idx = 0; idx < PCM_SAMPLES_PER_FRAME; idx++)
+            {
+                ChannelSamples[idx] = dGain * pb[idx];
+            }
+
+            readData = adpcm64_encode_run(&encoder, ChannelSamples, encodedSamples, PCM_SAMPLES_PER_FRAME);
+            readData = adpcm64_pack_vadim(encodedSamples, packedSamples, readData);
+
+            RF_cmdPropTxAdv.pPkt = (uint8_t*)packedSamples;
+            RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
+
+            SA_audioFree(bufferRequest.buffer, PCM_METADATA_SIZE + 2* PCM_SAMPLES_PER_FRAME);
         }
-
-        readData = adpcm64_encode_run(&encoder, ChannelSamples, encodedSamples, PCM_SAMPLES_PER_FRAME);
-        readData = adpcm64_pack_vadim(encodedSamples, packedSamples, readData);
-
-        RF_cmdPropTxAdv.pPkt = (uint8_t*)packedSamples;
-        RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
-
-        bufferRelease.bufferHandleIn = bufferRequest.bufferHandleIn;
-        bufferRelease.bufferHandleOut = NULL;
-        I2SCC26XX_releaseBuffer(i2sHandle, &bufferRelease);
-
-        gotBuffer = I2SCC26XX_requestBuffer(i2sHandle, &bufferRequest);
     }
 }
 
@@ -390,12 +356,13 @@ static void processAudioFrame()
 static bool createAudioBuffers()
 {
     // Allocate memory for decoded PCM data
-    pcmSamples = Memory_alloc(NULL, sizeof(int16_t) * (2*PCM_SAMPLES_PER_FRAME * I2SCC26XX_QUEUE_SIZE), 0, NULL);
+    //pcmSamples = Memory_alloc(NULL, sizeof(int16_t) * (2*PCM_SAMPLES_PER_FRAME * I2SCC26XX_QUEUE_SIZE), 0, NULL);
     ChannelSamples = Memory_alloc(NULL, sizeof(int16_t) * PCM_SAMPLES_PER_FRAME, 0, NULL);
     encodedSamples = Memory_alloc(NULL, sizeof(uint16_t) * PCM_SAMPLES_PER_FRAME/2, 0, NULL);
     packedSamples = Memory_alloc(NULL, sizeof(uint16_t) * 5*(PCM_SAMPLES_PER_FRAME/8), 0, NULL);
 
-    if ( (pcmSamples == NULL ) || (ChannelSamples == NULL) || (encodedSamples == NULL) || (packedSamples == NULL))
+    //if ( (pcmSamples == NULL ) || (ChannelSamples == NULL) || (encodedSamples == NULL) || (packedSamples == NULL))
+    if ((ChannelSamples == NULL) || (encodedSamples == NULL) || (packedSamples == NULL))
     {
         return false;
     }
@@ -405,8 +372,30 @@ static bool createAudioBuffers()
 
 static void destroyAudioBuffers()
 {
-    Memory_free(NULL, pcmSamples, sizeof(int16_t) * (2*PCM_SAMPLES_PER_FRAME * I2SCC26XX_QUEUE_SIZE));
+    //Memory_free(NULL, pcmSamples, sizeof(int16_t) * (2*PCM_SAMPLES_PER_FRAME * I2SCC26XX_QUEUE_SIZE));
     Memory_free(NULL, ChannelSamples, sizeof(int16_t) * PCM_SAMPLES_PER_FRAME);
     Memory_free(NULL, encodedSamples, sizeof(uint16_t) * PCM_SAMPLES_PER_FRAME/2);
     Memory_free(NULL, packedSamples, sizeof(uint16_t) * 5*(PCM_SAMPLES_PER_FRAME/8));
+}
+
+static int mallocCount = 0;
+static void *SA_audioMalloc(uint_least16_t size)
+{
+    Error_Block eb;
+    Error_init(&eb);
+    if (size > 64)
+    {
+        mallocCount++;
+    }
+    return Memory_alloc(NULL, size, 0, &eb);
+}
+
+static int freeCount = 0;
+static void SA_audioFree(void *msg, size_t size)
+{
+    if (size > 64)
+    {
+        freeCount++;
+    }
+    Memory_free(NULL, msg, size);
 }
