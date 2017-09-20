@@ -1,3 +1,35 @@
+/*
+ * Copyright (c) 2014, Texas Instruments Incorporated
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * *  Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * *  Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * *  Neither the name of Texas Instruments Incorporated nor the names of
+ *    its contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include <xdc/runtime/Error.h>
 #include <xdc/runtime/Assert.h>
 #include <xdc/runtime/Diags.h>
@@ -12,10 +44,11 @@
 #include <ti/drivers/Power.h>
 #include <ti/drivers/power/PowerCC26XX.h>
 
-#include <string.h>
-
+// TODO: Create correct path
+//#include <ti/drivers/i2s/I2SCC26XX.h>
 #include "I2SCC26XX.h"
 
+#include <string.h>
 
 /* driverlib header files */
 #include DeviceFamily_constructPath(inc/hw_memmap.h)
@@ -26,6 +59,7 @@
 #include DeviceFamily_constructPath(driverlib/rom.h)
 #include DeviceFamily_constructPath(driverlib/prcm.h)
 #include DeviceFamily_constructPath(driverlib/i2s.h)
+
 
 /* I2SCC26XX functions */
 void            I2SCC26XX_init(I2SCC26XX_Handle handle);
@@ -42,13 +76,38 @@ static void I2SCC26XX_hwiFxn (UArg arg);
 static void I2SCC26XX_callback(I2SCC26XX_Handle handle, I2SCC26XX_StreamNotification *msg);
 static void I2SCC26XX_cleanUpQueues();
 
+#ifdef I2S_DEBUG
+    static int32_t dbgCntDmaIn = 0, dbgCntDmaOut = 0, dbgCntPtrErr = 0;
+    static int32_t dbgCntI2SReqBuf = 0;
+    static int32_t dbgCntI2SRelBuf = 0;
+#endif //I2S_DEBUG
+
+#ifdef I2S_DEBUG
+typedef enum {
+    NODE_INDICATOR_NO_QUEUE,       // 0: not part of queue
+    NODE_INDICATOR_AVAIL_QUEUE,    // 1: part of available
+    NODE_INDICATOR_READY_QUEUE,    // 2: part of ready,
+    NODE_INDICATOR_NEXT,           // 3: next
+    NODE_INDICATOR_ACTIVE,         // 4: active
+    NODE_INDICATOR_USER,           // 5: handled by user
+    NODE_INDICATOR_REUSED,         // 6: reusable
+} queueIndicator_t;
+#endif
 typedef struct
 {
   Queue_Elem  _elem;    // queue element
+#ifdef I2S_DEBUG
+  queueIndicator_t queueIndicator;
+#endif //I2S_DEBUG
   void *buf;        // Buffer pointer, allocated by caller
   // TODO: Add output buffer
 } queueNodeI2S_t;
 
+//queueNodeI2S_t nodeTable[NUM_OF_NODES];
+
+#ifdef I2S_DEBUG
+static queueNodeI2S_t * shadowQueueNodeTable[I2SCC26XX_QUEUE_SIZE * 2];
+#endif //I2S_DEBUG
 
 static queueNodeI2S_t *i2sBlockActiveIn = NULL; // Reference to the element which is currently being filled by I2S DMA In
 static queueNodeI2S_t *i2sBlockNextIn = NULL; // Reference to the next element which will be filled by I2S DMA In
@@ -93,33 +152,36 @@ bool I2SCC26XX_Params_init(I2SCC26XX_Params *params, I2SCC26XX_Mode mode, void *
 {
     if( mode == I2SCC26XX_I2S)
     {
+        /* The following are constants that apply to I2S */
         params->i32SampleRate = I2S_SAMPLE_RATE_16K;                             /* If negative then use user configured clock division */
-        params->audioClkCfg.wclkDiv = 32;                                        /* I2S Word Clock divider override*/
+        params->audioClkCfg.wclkDiv = 32; //16                                   /* I2S Word Clock divider override*/
         params->audioClkCfg.sampleOnPositiveEdge = I2SCC26XX_SampleEdge_Postive; /* I2S Sample Edge */
         params->audioClkCfg.wclkPhase = I2SCC26XX_WordClockPhase_Dual;           /* I2S Word Clock Phase */
         params->audioClkCfg.wclkInverted = I2SCC26XX_ClockSource_Normal;         /* I2S Invert Word Clock */
         params->audioClkCfg.wclkSource = I2SCC26XX_WordClockSource_Ext;          /* I2S Word Clock source */
-        params->audioClkCfg.bclkDiv = 48;                                        /* I2S Bit Clock divider override */
+        params->audioClkCfg.bclkDiv = 48;                                    /* I2S Bit Clock divider override */
         params->audioClkCfg.reserved = 0;
         params->audioClkCfg.bclkSource = I2SCC26XX_BitClockSource_Ext;           /* I2S Bit Clock source */
         params->audioClkCfg.mclkDiv = 8;                                         /* I2S Master Clock divider override */
 
-        params->audioPinCfg.bitFields.ad1Usage = I2SCC26XX_ADUsageDisabled;      /* I2S AD1 usage (0: Disabled, 1: Input, 2: Output) */
+        params->audioPinCfg.bitFields.enableWclkPin = I2SCC26XX_GENERIC_DISABLED; /* I2S Enable Word clock output on pin */
+        params->audioPinCfg.bitFields.enableBclkPin = I2SCC26XX_GENERIC_DISABLED; /* I2S Enable Bit clock output on pin */
         params->audioPinCfg.bitFields.enableMclkPin = I2SCC26XX_GENERIC_DISABLED;/* I2S Enable Master clock output on pin */
         params->audioPinCfg.bitFields.reserved = 0;
+
+        params->audioPinCfg.bitFields.ad1Usage = I2SCC26XX_ADUsageDisabled;         /* I2S AD1 usage (0: Disabled, 1: Input, 2: Output) */
         params->audioPinCfg.bitFields.ad1NumOfChannels = 0;                      /* I2S AD1 number of channels (1 - 8). !Must match channel mask */
-        params->audioPinCfg.bitFields.ad1ChannelMask = I2SCC26XX_DISABLED_MODE;  /* I2S AD1 Channel Mask */
-        params->audioPinCfg.bitFields.ad0Usage = I2SCC26XX_ADUsageInput;         /* I2S AD0 usage (0: Disabled, 1: Input, 2: Output) */
-        params->audioPinCfg.bitFields.enableWclkPin = I2SCC26XX_GENERIC_DISABLED;/* I2S Enable Word clock output on pin */
-        params->audioPinCfg.bitFields.enableBclkPin = I2SCC26XX_GENERIC_DISABLED;/* I2S Enable Bit clock output on pin */
+        params->audioPinCfg.bitFields.ad1ChannelMask = I2SCC26XX_DISABLED_MODE;      /* I2S AD1 Channel Mask */
+
+        params->audioPinCfg.bitFields.ad0Usage = I2SCC26XX_ADUsageInput;        /* I2S AD0 usage (0: Disabled, 1: Input, 2: Output) */
         params->audioPinCfg.bitFields.ad0NumOfChannels = 2;                      /* I2S AD0 number of channels (1 - 8). !Must match channel mask. \sa PDM_NUM_OF_CHANNELS */
-        params->audioPinCfg.bitFields.ad0ChannelMask = I2SCC26XX_STEREO_MODE;    /* I2S AD0 Channel Mask */
+        params->audioPinCfg.bitFields.ad0ChannelMask = I2SCC26XX_STEREO_MODE;      /* I2S AD0 Channel Mask */
 
         params->audioFmtCfg.wordLength = I2SCC26XX_WordLength16;                 /* Number of bits per word (8-24). Exact for single phase, max for dual phase */
         params->audioFmtCfg.sampleEdge = I2SCC26XX_PositiveEdge;                 /* Data and Word clock is samples, and clocked out, on opposite edges of BCLK */
         params->audioFmtCfg.dualPhase = I2SCC26XX_DualPhase;                     /* Selects dual- or single phase format (0: Single, 1: Dual) */
         params->audioFmtCfg.memLen = I2SCC26XX_MemLen16bit;                      /* Size of each word stored to or loaded from memory (0: 16, 1: 24) */
-        params->audioFmtCfg.dataDelay = I2SCC26XX_FormatI2SandDSP;               /* Number of BCLK periods between a WCLK edge and MSB of the first word in a phase */
+        params->audioFmtCfg.dataDelay = I2SCC26XX_FormatI2SandDSP;               /* Number of BCLK perids between a WCLK edge and MSB of the first word in a phase */
     }
     else if( mode == I2SCC26XX_PDM)
     {
@@ -127,6 +189,7 @@ bool I2SCC26XX_Params_init(I2SCC26XX_Params *params, I2SCC26XX_Mode mode, void *
 
     return true;
 }
+
 /*
  *  ======== I2SCC26XX_open ========
  *  @pre    Function assumes that the handle is not NULL
@@ -177,8 +240,6 @@ I2SCC26XX_Handle I2SCC26XX_open(I2SCC26XX_Handle handle, I2SCC26XX_Params *param
     object->currentStream               = params->currentStream;
     object->currentStream->status       = I2SCC26XX_STREAM_IDLE;
 
-
-
     // Find out how many channels are In and Out respectively
     uint8_t ui8TotalNumberOfChannelsIn = 0;
     uint8_t ui8TotalNumberOfChannelsOut = 0;
@@ -209,6 +270,9 @@ I2SCC26XX_Handle I2SCC26XX_open(I2SCC26XX_Handle handle, I2SCC26XX_Params *param
                      hwAttrs->baseAddr,
                      ui32BlockSizeInBytesIn * ui32NumberOfBlocks);
 
+        /* Release power dependency - i.e. potentially power down serial domain. */
+        //Power_releaseDependency(hwAttrs->powerMngrId);
+
         /* Mark the module as available */
         key = Hwi_disable();
         object->isOpen = false;
@@ -228,6 +292,9 @@ I2SCC26XX_Handle I2SCC26XX_open(I2SCC26XX_Handle handle, I2SCC26XX_Params *param
     if ( (ui32TotalNumberOfBlocks * sizeof(queueNodeI2S_t)) < object->ui32conMgtBufTotalSize ) {
         /* Not enough memory has been allocated */
         Log_warning0("Not enough memory provided");
+
+        /* Release power dependency - i.e. potentially power down serial domain. */
+        //Power_releaseDependency(hwAttrs->powerMngrId);
 
         /* Mark the module as available */
         key = Hwi_disable();
@@ -281,10 +348,19 @@ I2SCC26XX_Handle I2SCC26XX_open(I2SCC26XX_Handle handle, I2SCC26XX_Params *param
             tmpNode->buf = &((uint8_t *)object->pvContBuffer)[i * ui32BlockSizeInBytesIn];
             if (i == (ui32NumberOfBlocks - 1)) {
                 i2sBlockRepeatIn = tmpNode;
+#ifdef I2S_DEBUG
+                tmpNode->queueIndicator = NODE_INDICATOR_REUSED;
+#endif //I2S_DEBUG
             }
             else {
                 Queue_enqueue(i2sBlockAvailInQueue, &tmpNode->_elem);
+#ifdef I2S_DEBUG
+                tmpNode->queueIndicator = NODE_INDICATOR_AVAIL_QUEUE;
+#endif //I2S_DEBUG
             }
+#ifdef I2S_DEBUG
+            shadowQueueNodeTable[i] = tmpNode;
+#endif //I2S_DEBUG
         }
     }
     else {
@@ -300,17 +376,27 @@ I2SCC26XX_Handle I2SCC26XX_open(I2SCC26XX_Handle handle, I2SCC26XX_Params *param
         Queue_construct(&i2sBlockAvailOut, NULL);
         i2sBlockAvailOutQueue = Queue_handle(&i2sBlockAvailOut);
 
-        uint32_t ui32NumberOfBlocksIn = object->ui32conBufTotalSize/ui32BlockSizeInBytesIn;
+        // Add offset if there are block In
+        uint32_t ui32NumberOfBlocksIn = (ui32BlockSizeInBytesIn) ? ui32NumberOfBlocks : 0;
         for (i = 0; i < ui32NumberOfBlocks ; i++) {
             queueNodeI2S_t * tmpNode = (queueNodeI2S_t *)&((uint8_t *)object->pvContMgtBuffer)[(i * sizeof(queueNodeI2S_t)) + (ui32NumberOfBlocksIn * sizeof(queueNodeI2S_t))];
             // Split continuous buffer
-            tmpNode->buf = &((uint8_t *)object->pvContBuffer)[(i * ui32BlockSizeInBytesOut) + (ui32NumberOfBlocks * ui32BlockSizeInBytesIn)];
+            tmpNode->buf = &((uint8_t *)object->pvContBuffer)[(i * ui32BlockSizeInBytesOut) + (ui32NumberOfBlocksIn * ui32BlockSizeInBytesIn)];
             if (i == (ui32NumberOfBlocks - 1)) {
                 i2sBlockRepeatOut = tmpNode;
+#ifdef I2S_DEBUG
+                tmpNode->queueIndicator = NODE_INDICATOR_REUSED;
+#endif //I2S_DEBUG
             }
             else {
                 Queue_enqueue(i2sBlockAvailOutQueue, &tmpNode->_elem);
+#ifdef I2S_DEBUG
+                tmpNode->queueIndicator = NODE_INDICATOR_AVAIL_QUEUE;
+#endif //I2S_DEBUG
             }
+#ifdef I2S_DEBUG
+            shadowQueueNodeTable[i + ui32NumberOfBlocksIn] = tmpNode;
+#endif //I2S_DEBUG
         }
     }
     else {
@@ -353,6 +439,9 @@ I2SCC26XX_Handle I2SCC26XX_open(I2SCC26XX_Handle handle, I2SCC26XX_Params *param
     }
 
     Log_print1(Diags_USER2, "I2S:(%p) opened", hwAttrs->baseAddr);
+
+    /* Register notification functions */
+//    Power_registerNotify(&object->i2sPostObj, Power_AWAKE_STANDBY, (Fxn)i2sPostNotify, (UInt32)handle, NULL );
 
     return (handle);
 }
@@ -440,15 +529,39 @@ static void I2SCC26XX_hwiFxn (UArg arg) {
     I2SIntClear(hwAttrs->baseAddr, intStatus);
 
     if (intStatus & I2S_IRQMASK_AIF_DMA_IN) {
+#ifdef I2S_DEBUG
+        dbgCntDmaIn++;
+        if (dbgCntDmaIn == 2) {
+            asm(" NOP");
+        }
+        if (dbgCntDmaIn == 300) {
+            asm(" NOP");
+        }
+#endif //I2S_DEBUG
         /* Move completed buffer to ready queue, if not reusable buffer */
         if (i2sBlockActiveIn != i2sBlockRepeatIn) {
           /* Move completed buffer to ready queue */
           Queue_put(i2sBlockReadyInQueue, &i2sBlockActiveIn->_elem);
+#ifdef I2S_DEBUG
+          i2sBlockActiveIn->queueIndicator = NODE_INDICATOR_READY_QUEUE;
+#endif //I2S_DEBUG
+        } else {
+            Log_print1(Diags_USER2, "I2S:(%p) reusable buffer used In", hwAttrs->baseAddr);
         }
         /* Setup next active buffer */
         i2sBlockActiveIn = i2sBlockNextIn;
         /* Mark next buffer as empty*/
         i2sBlockNextIn = NULL;
+#ifdef I2S_DEBUG
+        // Avoid null-pointer exception
+        if (i2sBlockActiveIn) {
+            i2sBlockActiveIn->queueIndicator = NODE_INDICATOR_ACTIVE;
+        }
+        else {
+            // This can happen if stream is stopping
+            asm(" NOP");
+        }
+#endif //I2S_DEBUG
 
         if (object->currentStream->status == I2SCC26XX_STREAM_STOPPING) {
             /* Part of shut down sequence*/
@@ -457,6 +570,9 @@ static void I2SCC26XX_hwiFxn (UArg arg) {
         else if (object->currentStream->status != I2SCC26XX_STREAM_STOPPED) {
             if (!Queue_empty(i2sBlockAvailInQueue)) {
                 i2sBlockNextIn = Queue_get(i2sBlockAvailInQueue);
+#ifdef I2S_DEBUG
+                i2sBlockNextIn->queueIndicator = NODE_INDICATOR_NEXT;
+#endif //I2S_DEBUG
                 I2SPointerSet(hwAttrs->baseAddr, true, (uint32_t *)i2sBlockNextIn->buf);
                 /* Buffer is ready */
                 object->currentStream->status = I2SCC26XX_STREAM_BUFFER_READY;
@@ -467,6 +583,9 @@ static void I2SCC26XX_hwiFxn (UArg arg) {
                 object->currentStream->status = I2SCC26XX_STREAM_BUFFER_READY_BUT_NO_AVAILABLE_BUFFERS;
                 // Send reusable frames
                 i2sBlockNextIn = i2sBlockRepeatIn;
+#ifdef I2S_DEBUG
+                i2sBlockNextIn->queueIndicator = NODE_INDICATOR_REUSED;
+#endif //I2S_DEBUG
                 I2SPointerSet(hwAttrs->baseAddr, true, (uint32_t *)i2sBlockNextIn->buf);
             }
 
@@ -481,14 +600,88 @@ static void I2SCC26XX_hwiFxn (UArg arg) {
     }
 
     if (intStatus & I2S_IRQMASK_AIF_DMA_OUT) {
+#ifdef I2S_DEBUG
+        dbgCntDmaOut++;
+        if (dbgCntDmaOut == 2) {
+            asm(" NOP");
+        }
+        if (dbgCntDmaOut == 300) {
+            asm(" NOP");
+        }
+#endif //I2S_DEBUG
         /* Move completed buffer to ready queue, if not reusable buffer */
-        asm(" NOP");
+        if (i2sBlockActiveOut != i2sBlockRepeatOut) {
+            Queue_put(i2sBlockReadyOutQueue, &i2sBlockActiveOut->_elem);
+#ifdef I2S_DEBUG
+            i2sBlockActiveOut->queueIndicator = NODE_INDICATOR_READY_QUEUE;
+#endif //I2S_DEBUG
+        } else {
+            Log_print1(Diags_USER2, "I2S:(%p) reusable buffer used Out", hwAttrs->baseAddr);
+        }
+        /* Setup next active buffer */
+        i2sBlockActiveOut = i2sBlockNextOut;
+        /* Mark next buffer as empty*/
+        i2sBlockNextOut = NULL;
+#ifdef I2S_DEBUG
+        // Avoid null-pointer exception
+        if (i2sBlockActiveOut) {
+            i2sBlockActiveOut->queueIndicator = NODE_INDICATOR_ACTIVE;
+        }
+        else {
+            // This can happen if stream is stopping
+            asm(" NOP");
+        }
+#endif //I2S_DEBUG
+
+        if (object->currentStream->status == I2SCC26XX_STREAM_STOPPING) {
+            /* Part of shut down sequence*/
+            object->currentStream->status = I2SCC26XX_STREAM_STOPPED;
+        }
+        else if (object->currentStream->status != I2SCC26XX_STREAM_STOPPED) {
+            if ((dbgCntI2SRelBuf > 4) && !Queue_empty(i2sBlockAvailOutQueue))
+            {
+                i2sBlockNextOut = Queue_get(i2sBlockAvailOutQueue);
+#ifdef I2S_DEBUG
+                i2sBlockNextOut->queueIndicator = NODE_INDICATOR_NEXT;
+#endif //I2S_DEBUG
+                I2SPointerSet(hwAttrs->baseAddr, false, (uint32_t *)i2sBlockNextOut->buf);
+                /* Buffer is ready */
+                object->currentStream->status = I2SCC26XX_STREAM_BUFFER_READY;
+            }
+            else
+            {
+                //ITM_Port32(2) = 0xDEADABBA;
+                object->currentStream->status = I2SCC26XX_STREAM_BUFFER_READY_BUT_NO_AVAILABLE_BUFFERS;
+                if (i2sBlockReadyOutQueue) {
+                  // Send reusable frames
+                  i2sBlockNextOut = i2sBlockRepeatOut;
+                  // Copy data from previous frame, best to repeat this
+                  memcpy(i2sBlockRepeatOut->buf, i2sBlockActiveOut->buf, object->blockSize * ((object->audioFmtCfg.memLen) ? 3 : 2 ));
+#ifdef I2S_DEBUG
+                  i2sBlockNextOut->queueIndicator = NODE_INDICATOR_REUSED;
+#endif //I2S_DEBUG
+                  I2SPointerSet(hwAttrs->baseAddr, false, (uint32_t *)i2sBlockNextOut->buf);
+                }
+            }
+
+            /* Use a temporary stream pointer in case the callback function
+            * attempts to perform another I2SCC26XX_bufferRequest call
+            */
+            notification = object->currentStream;
+            object->currentStream->arg = shadowQueueNodeTable;
+
+            /* Notify caller about availability of buffer */
+            object->callbackFxn((I2SCC26XX_Handle)arg, notification);
+        }
     }
 
     /* Error handling:
     * Overrun in the RX Fifo -> at least one sample in the shift
     * register has been discarded  */
     if (intStatus & I2S_IRQMASK_PTR_ERR) {
+#ifdef I2S_DEBUG
+        dbgCntPtrErr++;
+#endif //I2S_DEBUG
         /* disable the interrupt */
         I2SIntDisable(hwAttrs->baseAddr, I2S_INT_PTR_ERR);
         /* Check if we are expecting this interrupt as part of stopping */
@@ -574,21 +767,36 @@ bool I2SCC26XX_startStream(I2SCC26XX_Handle handle) {
 
     if ((i2sBlockActiveIn == NULL) && i2sBlockReadyInQueue) {
         i2sBlockActiveIn = Queue_dequeue(i2sBlockAvailInQueue);
+#ifdef I2S_DEBUG
+        i2sBlockActiveIn->queueIndicator = NODE_INDICATOR_ACTIVE;
+#endif //I2S_DEBUG
     }
     if ((i2sBlockNextIn == NULL) && i2sBlockReadyInQueue) {
         i2sBlockNextIn = Queue_dequeue(i2sBlockAvailInQueue);
+#ifdef I2S_DEBUG
+        i2sBlockNextIn->queueIndicator = NODE_INDICATOR_NEXT;
+#endif //I2S_DEBUG
     }
 
     if ((i2sBlockActiveOut == NULL) && i2sBlockReadyOutQueue) {
         i2sBlockActiveOut = Queue_dequeue(i2sBlockAvailOutQueue);
+#ifdef I2S_DEBUG
+        i2sBlockActiveOut->queueIndicator = NODE_INDICATOR_ACTIVE;
+#endif //I2S_DEBUG
     }
     if ((i2sBlockNextOut == NULL) && i2sBlockReadyOutQueue) {
         i2sBlockNextOut = Queue_dequeue(i2sBlockAvailOutQueue);
+#ifdef I2S_DEBUG
+        i2sBlockNextOut->queueIndicator = NODE_INDICATOR_NEXT;
+#endif //I2S_DEBUG
         // Move at least one buffer to ready queue
         if (!Queue_empty(i2sBlockAvailOutQueue)) {
             queueNodeI2S_t *availNode = Queue_dequeue(i2sBlockAvailOutQueue);
             /* Move buffer to ready queue */
             Queue_enqueue(i2sBlockReadyOutQueue, &availNode->_elem);
+#ifdef I2S_DEBUG
+            availNode->queueIndicator = NODE_INDICATOR_READY_QUEUE;
+#endif //I2S_DEBUG
         }
     }
 
@@ -617,6 +825,13 @@ bool I2SCC26XX_startStream(I2SCC26XX_Handle handle) {
 
     /* Clear internal pending interrupt flags */
     I2SIntClear(I2S0_BASE, I2S_INT_ALL);
+
+#ifdef I2S_DEBUG
+    dbgCntDmaIn = 0;
+    dbgCntDmaOut = 0;
+    dbgCntI2SReqBuf = 0;
+    dbgCntI2SRelBuf = 0;
+#endif //I2S_DEBUG
 
     /* Configuring sample stamp generator will trigger the audio stream to start */
     I2SSampleStampConfigure(hwAttrs->baseAddr, (i2sBlockReadyInQueue) ? true : false, (i2sBlockReadyOutQueue) ? true : false);
@@ -712,6 +927,10 @@ bool I2SCC26XX_requestBuffer(I2SCC26XX_Handle handle, I2SCC26XX_BufferRequest *b
     /* Get the pointer to the object */
     object = handle->object;
 
+#ifdef I2S_DEBUG
+    dbgCntI2SReqBuf++;
+#endif //I2S_DEBUG
+
     if (object->requestMode == I2SCC26XX_MODE_BLOCKING) {
         Log_print1(Diags_USER2, "I2S:(%p) request pending on blockComplete "
                                 "semaphore",
@@ -732,22 +951,52 @@ bool I2SCC26XX_requestBuffer(I2SCC26XX_Handle handle, I2SCC26XX_BufferRequest *b
     * after being notified of available buffers. Hence we may directly
     * check queue and dequeue buffer
     */
-    if (i2sBlockReadyInQueue) {
+
+    // If Input AND Output are both defined both should be available before returning buffers
+    if (bufferRequest->buffersRequested == I2SCC26XX_BUFFER_IN_AND_OUT) {
+        if ((!Queue_empty(i2sBlockReadyInQueue)) && (!Queue_empty(i2sBlockReadyOutQueue))) {
+            queueNodeI2S_t *readyNode = Queue_get(i2sBlockReadyInQueue);
+            bufferRequest->bufferIn = readyNode->buf;
+//                    bufferRequest->status = object->currentStream->status;
+            bufferRequest->bufferHandleIn = readyNode;
+#ifdef I2S_DEBUG
+            readyNode->queueIndicator = NODE_INDICATOR_USER;
+#endif //I2S_DEBUG
+            readyNode = Queue_get(i2sBlockReadyOutQueue);
+            bufferRequest->bufferOut = readyNode->buf;
+            bufferRequest->status = object->currentStream->status;
+            bufferRequest->bufferHandleOut = readyNode;
+#ifdef I2S_DEBUG
+            readyNode->queueIndicator = NODE_INDICATOR_USER;
+#endif //I2S_DEBUG
+            retVal = true;
+        }
+    } else if (bufferRequest->buffersRequested == I2SCC26XX_BUFFER_IN) {
         if (!Queue_empty(i2sBlockReadyInQueue)) {
             queueNodeI2S_t *readyNode = Queue_get(i2sBlockReadyInQueue);
             bufferRequest->bufferIn = readyNode->buf;
             bufferRequest->status = object->currentStream->status;
             bufferRequest->bufferHandleIn = readyNode;
+#ifdef I2S_DEBUG
+            readyNode->queueIndicator = NODE_INDICATOR_USER;
+#endif //I2S_DEBUG
             retVal = true;
         }
-    }
-
-    if (i2sBlockReadyOutQueue) {
+    } else if (bufferRequest->buffersRequested == I2SCC26XX_BUFFER_OUT) {
         if (!Queue_empty(i2sBlockReadyOutQueue)) {
             queueNodeI2S_t *readyNode = Queue_get(i2sBlockReadyOutQueue);
-            bufferRequest->bufferOut = readyNode->buf;
-            bufferRequest->status = object->currentStream->status;
-            bufferRequest->bufferHandleOut = readyNode;
+            if(readyNode != NULL)
+            {
+                bufferRequest->bufferOut = readyNode->buf;
+                bufferRequest->status = object->currentStream->status;
+                bufferRequest->bufferHandleOut = readyNode;
+            }
+            else{
+                retVal = false;
+            }
+#ifdef I2S_DEBUG
+            readyNode->queueIndicator = NODE_INDICATOR_USER;
+#endif //I2S_DEBUG
             retVal = true;
         }
     }
@@ -763,9 +1012,15 @@ bool I2SCC26XX_requestBuffer(I2SCC26XX_Handle handle, I2SCC26XX_BufferRequest *b
 void I2SCC26XX_releaseBuffer(I2SCC26XX_Handle handle, I2SCC26XX_BufferRelease *bufferRelease)
 {
     unsigned int key;
+#ifdef I2S_DEBUG
+    dbgCntI2SRelBuf++;
+#endif //I2S_DEBUG
     if (bufferRelease->bufferHandleIn) {
         /* Place released buffer back in available queue */
         Queue_put(i2sBlockAvailInQueue, &((queueNodeI2S_t *)bufferRelease->bufferHandleIn)->_elem);
+#ifdef I2S_DEBUG
+        ((queueNodeI2S_t *)bufferRelease->bufferHandleIn)->queueIndicator = NODE_INDICATOR_AVAIL_QUEUE;
+#endif //I2S_DEBUG
     }
     if (bufferRelease->bufferHandleOut) {
         key = Hwi_disable();
@@ -773,10 +1028,16 @@ void I2SCC26XX_releaseBuffer(I2SCC26XX_Handle handle, I2SCC26XX_BufferRelease *b
         if (i2sBlockNextOut == i2sBlockRepeatOut)
         {
             i2sBlockNextOut = ((queueNodeI2S_t *)bufferRelease->bufferHandleOut);
+#ifdef I2S_DEBUG
+            ((queueNodeI2S_t *)bufferRelease->bufferHandleOut)->queueIndicator = NODE_INDICATOR_NEXT;
+#endif //I2S_DEBUG
         }
         else {
             /* Place released buffer back in available queue */
             Queue_put(i2sBlockAvailOutQueue, &((queueNodeI2S_t *)bufferRelease->bufferHandleOut)->_elem);
+#ifdef I2S_DEBUG
+            ((queueNodeI2S_t *)bufferRelease->bufferHandleOut)->queueIndicator = NODE_INDICATOR_AVAIL_QUEUE;
+#endif //I2S_DEBUG
         }
         Hwi_restore(key);
     }
@@ -830,7 +1091,7 @@ static void I2SCC26XX_initHw(I2SCC26XX_Handle handle) {
                         object->audioPinCfg.driverLibParams.ad1);
 
     /* Turn on I2S clocks */
-//    PRCMPeripheralRunEnable(PRCM_PERIPH_I2S);
+    PRCMPeripheralRunEnable(PRCM_PERIPH_I2S);
 
     /* Configure Clocks*/
     uint32_t clkCfg = object->audioClkCfg.wclkSource;
@@ -886,10 +1147,10 @@ static bool I2SCC26XX_initIO(I2SCC26XX_Handle handle) {
 
     if (object->audioPinCfg.bitFields.enableWclkPin) {
       i2sPinTable[i++] = hwAttrs->wclkPin | IOC_STD_OUTPUT;
-    }
-    else{
+    } else{
         i2sPinTable[i++] = hwAttrs->wclkPin | IOC_STD_INPUT;
     }
+
 
     if (object->audioPinCfg.bitFields.enableBclkPin) {
       i2sPinTable[i++] = hwAttrs->bclkPin | IOC_STD_OUTPUT;
@@ -904,7 +1165,6 @@ static bool I2SCC26XX_initIO(I2SCC26XX_Handle handle) {
     else if (object->audioPinCfg.bitFields.ad0Usage == I2SCC26XX_ADUsageOutput) {
       i2sPinTable[i++] = hwAttrs->ad0Pin | IOC_STD_OUTPUT;
     }
-
     if (object->audioPinCfg.bitFields.ad1Usage == I2SCC26XX_ADUsageInput) {
       i2sPinTable[i++] = hwAttrs->ad1Pin | IOC_STD_INPUT;
     }
@@ -923,18 +1183,18 @@ static bool I2SCC26XX_initIO(I2SCC26XX_Handle handle) {
     if (object->audioPinCfg.bitFields.enableMclkPin) {
       PINCC26XX_setMux(object->pinHandle, hwAttrs->mclkPin,  IOC_PORT_MCU_I2S_MCLK);
     }
-    //if (object->audioPinCfg.bitFields.enableWclkPin) {
+//    if (object->audioPinCfg.bitFields.enableWclkPin) {
       PINCC26XX_setMux(object->pinHandle, hwAttrs->wclkPin,  IOC_PORT_MCU_I2S_WCLK);
-    //}
-    //if (object->audioPinCfg.bitFields.enableBclkPin) {
+//    }
+//    if (object->audioPinCfg.bitFields.enableBclkPin) {
       PINCC26XX_setMux(object->pinHandle, hwAttrs->bclkPin,  IOC_PORT_MCU_I2S_BCLK);
-    //}
-    if (object->audioPinCfg.bitFields.ad0Usage != I2SCC26XX_ADUsageDisabled) {
+//    }
+//    if (object->audioPinCfg.bitFields.ad0Usage != I2SCC26XX_ADUsageDisabled) {
       PINCC26XX_setMux(object->pinHandle, hwAttrs->ad0Pin,  IOC_PORT_MCU_I2S_AD0);
-    }
-    if (object->audioPinCfg.bitFields.ad1Usage != I2SCC26XX_ADUsageDisabled) {
+//    }
+//    if (object->audioPinCfg.bitFields.ad1Usage != I2SCC26XX_ADUsageDisabled) {
       PINCC26XX_setMux(object->pinHandle, hwAttrs->ad1Pin,  IOC_PORT_MCU_I2S_AD1);
-    }
+//    }
 
     return true;
 }
@@ -952,6 +1212,9 @@ static void I2SCC26XX_cleanUpQueues() {
             queueNodeI2S_t *readyNode = Queue_dequeue(i2sBlockReadyInQueue);
             /* Move buffer to avail queue */
             Queue_enqueue(i2sBlockAvailInQueue, &readyNode->_elem);
+#ifdef I2S_DEBUG
+            readyNode->queueIndicator = NODE_INDICATOR_AVAIL_QUEUE;
+#endif //I2S_DEBUG
         }
     }
     if (i2sBlockReadyOutQueue) {
@@ -960,6 +1223,9 @@ static void I2SCC26XX_cleanUpQueues() {
             queueNodeI2S_t *readyNode = Queue_dequeue(i2sBlockReadyOutQueue);
             /* Move buffer to avail queue */
             Queue_enqueue(i2sBlockAvailOutQueue, &readyNode->_elem);
+#ifdef I2S_DEBUG
+            readyNode->queueIndicator = NODE_INDICATOR_AVAIL_QUEUE;
+#endif //I2S_DEBUG
         }
     }
 }

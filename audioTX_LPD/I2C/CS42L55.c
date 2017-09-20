@@ -13,6 +13,7 @@
 #include <ti/drivers/Power.h>
 #include <ti/drivers/power/PowerCC26XX.h>
 
+#include <unistd.h>
 
 /* Example/Board Header files */
 #include "Board.h"
@@ -31,7 +32,7 @@ void initADCDevice(PIN_Handle enablePin)
 
     PIN_setOutputValue(enablePin, Board_DIO15, 1);
 
-    //usleep(100000);
+    usleep(1000);
 
     SensorI2C_open();
     SensorI2C_select(SENSOR_I2C_0,devAddress);
@@ -163,7 +164,7 @@ void initADCDevice(PIN_Handle enablePin)
     // ADC channel A ON
     // Entire CODEC power UP
     //M_WRI_I2C DEV_CS42L55, PowerCTL1, nPDN_CHRG | nPDN_ADCB | PDN_ADCA | PDN
-    val = nPDN_CHRG | PDN_ADCB | PDN_ADCA | PDN;
+    val = nPDN_CHRG | PDN_ADCB | PDN_ADCA | PDN; //??? check this
     SensorI2C_writeReg(PowerCTL1, &val, 1);
 
     SensorI2C_close();

@@ -23,7 +23,6 @@
 
 /* Example/Board Header files */
 #include "Board.h"
-//#include "I2C/SensorI2C.h"
 #include "I2C/CS42L55.h"
 #include "I2SDrv/I2SCC26XX.h"
 
@@ -31,21 +30,33 @@
 #include "G722/G722_64_Encoder.h"
 
 /* RF Settings */
-#include "rfsettings/smartrf_settings.h"
+#include "../IGOCommon/rfsettings/smartrf_settings.h"
 
+/*general settings*/
+#include "../IGOCommon/IGOCommon.h"
 
 #include <stdint.h>
 #include <unistd.h>
 
 
-#define AUDIOSTREAM_STACKSIZE      2048
 
-Task_Struct AStreamTaskStruct;
-Char AStreamTaskStack[AUDIOSTREAM_STACKSIZE];
-Semaphore_Struct AS_SemStruct;
-Semaphore_Handle AS_Sem;
+#define AUDIO_ENCODE_TASK_STACKSIZE      4096
+#define AUDIO_ENCODE_TASK_PRIO           1
 
-#define AUDIO_G722_P1              0x05
+#define RADIO_TX_TASK_STACK_SIZE    1024
+#define RADIO_TX_TASK_PRIO          2
+
+Task_Struct AEncodeTaskStruct;
+Task_Struct RadioTxTaskStruct;
+
+Char AEncodeTaskStack[AUDIO_ENCODE_TASK_STACKSIZE];
+Char RadioTxTaskStack[RADIO_TX_TASK_STACK_SIZE];
+
+Semaphore_Struct AEncodeSemStruct;
+Semaphore_Struct RadioTxSemStruct;
+
+Semaphore_Handle AEncodeSem;
+Semaphore_Handle RadioTxSem;
 
 
 // Internal Events for RTOS application
@@ -59,6 +70,7 @@ Semaphore_Handle AS_Sem;
 
 // events flag for internal application events.
 static uint16_t events = IGOTX_ZERO_EVENT;
+uint8_t packetReady = 0;
 
 // Global memory storage for a PIN_Config table
 static PIN_State ledPinState;
@@ -75,8 +87,6 @@ PIN_Config ledPinTable[] = {
 };
 
 
-#define PCM_SAMPLES_PER_FRAME    96
-
 typedef enum {
   STREAM_STATE_IDLE,
   STREAM_STATE_STARTING,
@@ -91,10 +101,11 @@ static RF_Object rfObject;
 static RF_Handle rfHandle;
 
 
-static int16_t *pcmSamples;
-static int16_t *ChannelSamples;
+static int16_t  *pcmSamples;
+static int16_t  *ChannelSamples;
 static uint16_t *encodedSamples;
 static uint16_t *packedSamples;
+static uint8_t  *payloadBuffer;
 
 uint8_t i2sContMgtBuffer[I2S_BLOCK_OVERHEAD_IN_BYTES * I2SCC26XX_QUEUE_SIZE] = {0};
 
@@ -137,25 +148,14 @@ static bool createAudioBuffers();
 static void destroyAudioBuffers();
 
 
-static void taskFxnAStream(UArg arg0, UArg arg1)
+static void taskFxnAudioEncode(UArg arg0, UArg arg1)
 {
     adpcm64_encode_init(&encoder);
 
-    /////////////////////////////////////////////////////
-    //Radio stuff
-    RF_Params rfParams;
-    RF_Params_init(&rfParams);
-    rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
-    RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
-
-
-    RF_cmdPropTxAdv.pktLen = (PCM_SAMPLES_PER_FRAME * 5)/8 ;
-    RF_cmdPropTxAdv.startTrigger.triggerType = TRIG_NOW;
-    RF_cmdPropTxAdv.startTrigger.pastTrig = 1;
-    RF_cmdPropTxAdv.startTime = 0;
-
-
-    initAudioBus();
+    if( !initAudioBus())
+    {
+        while(1);
+    }
 
     events |= IGOTX_AUDIO_START_EVENT;
 
@@ -164,10 +164,10 @@ static void taskFxnAStream(UArg arg0, UArg arg1)
         /////////////////////////////////////////////////////////
         if (events == IGOTX_ZERO_EVENT)
         {
-            if (Semaphore_getCount(AS_Sem) == 0) {
+            if (Semaphore_getCount(AEncodeSem) == 0) {
                 System_printf("Sem blocked in task1\n");
             }
-            Semaphore_pend(AS_Sem, BIOS_WAIT_FOREVER);
+            Semaphore_pend(AEncodeSem, BIOS_WAIT_FOREVER);
         }
 
         /////////////////////////////////////////////////////////
@@ -204,26 +204,76 @@ static void taskFxnAStream(UArg arg0, UArg arg1)
     }
 }
 
+static void taskFxnRadioTx(UArg arg0, UArg arg1)
+{
+    /////////////////////////////////////////////////////
+    //Radio stuff
+    RF_Params rfParams;
+    RF_Params_init(&rfParams);
+    rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
+    RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
+
+
+    RF_cmdPropTxAdv.pktLen = G722_P1_PAYLOAD_LENGTH;
+    RF_cmdPropTxAdv.startTrigger.triggerType = TRIG_NOW;
+    RF_cmdPropTxAdv.startTrigger.pastTrig = 1;
+    RF_cmdPropTxAdv.startTime = 0;
+
+    while (1) {
+        Semaphore_pend(RadioTxSem, BIOS_WAIT_FOREVER);
+        if (packetReady) {
+            RF_cmdPropTxAdv.pPkt = (uint8_t*)packedSamples;
+            RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
+            packetReady = 0;
+        }
+    }
+}
 ////////////////////////////////////////////////////////////////////////////////////////
 //  ======== main ========
 ////////////////////////////////////////////////////////////////////////////////////////
 
 main(void) {
-    Task_Params AStreamTaskParams;
-    Semaphore_Params AS_SemParams;
+    Task_Params AEncodeTaskParams;
+    Semaphore_Params AEncodeSemParams;
 
-    /* Call driver init functions */
+    Task_Params RadioTxTaskParams;
+    Semaphore_Params RadioTxSemParams;
+
+    // Call driver init functions
     Board_initGeneral();
 
-    // Construct BIOS objects for I2S Stream task
-    Task_Params_init(&AStreamTaskParams);
-    AStreamTaskParams.priority = 1;
-    AStreamTaskParams.stackSize = AUDIOSTREAM_STACKSIZE;
-    AStreamTaskParams.stack = &AStreamTaskStack;
-    Task_construct(&AStreamTaskStruct, (Task_FuncPtr)taskFxnAStream, &AStreamTaskParams, NULL);
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Construct BIOS objects for audio encoding task
+    Task_Params_init(&AEncodeTaskParams);
+    AEncodeTaskParams.priority = AUDIO_ENCODE_TASK_PRIO;
+    AEncodeTaskParams.stackSize = AUDIO_ENCODE_TASK_STACKSIZE;
+    AEncodeTaskParams.stack = &AEncodeTaskStack;
+    Task_construct(&AEncodeTaskStruct, (Task_FuncPtr)taskFxnAudioEncode, &AEncodeTaskParams, NULL);
+
+    // Construct a Semaphore object to be use as a resource lock, inital count 1
+    Semaphore_Params_init(&AEncodeSemParams);
+    Semaphore_construct(&AEncodeSemStruct, 1, &AEncodeSemParams);
+
+    // Obtain instance handle
+    AEncodeSem = Semaphore_handle(&AEncodeSemStruct);
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Construct BIOS objects for radio transmission
+    Task_Params_init(&RadioTxTaskParams);
+    RadioTxTaskParams.priority = RADIO_TX_TASK_PRIO;
+    RadioTxTaskParams.stackSize = RADIO_TX_TASK_STACK_SIZE;
+    RadioTxTaskParams.stack = &RadioTxTaskStack;
+    Task_construct(&RadioTxTaskStruct, (Task_FuncPtr)taskFxnRadioTx, &RadioTxTaskParams, NULL);
+
+    // Construct a Semaphore object to be use as a resource lock, inital count 1
+    Semaphore_Params_init(&RadioTxSemParams);
+    Semaphore_construct(&RadioTxSemStruct, 1, &RadioTxSemParams);
+
+    // Obtain instance handle
+    RadioTxSem = Semaphore_handle(&RadioTxSemStruct);
 
 
-    /* Open LED pins */
+    // Open LED pins
     ledPinHandle = PIN_open(&ledPinState, ledPinTable);
     if (!ledPinHandle) {
         System_abort("Error initializing board LED pins\n");
@@ -231,15 +281,7 @@ main(void) {
 
     PIN_setOutputValue(ledPinHandle, Board_PIN_LED1, 1);
 
-
-    /* Construct a Semaphore object to be use as a resource lock, inital count 1 */
-    Semaphore_Params_init(&AS_SemParams);
-    Semaphore_construct(&AS_SemStruct, 1, &AS_SemParams);
-
-    /* Obtain instance handle */
-    AS_Sem = Semaphore_handle(&AS_SemStruct);
-
-    /* Start BIOS */
+    // Start BIOS
     BIOS_start();
 
     return (0);
@@ -250,13 +292,13 @@ static void i2sCallbackFxn(I2SCC26XX_Handle handle, I2SCC26XX_StreamNotification
     if (notification->status == I2SCC26XX_STREAM_ERROR)
     {
         events |= IGOTX_AUDIO_ERROR_EVENT;
-        Semaphore_post(AS_Sem);
+        Semaphore_post(AEncodeSem);
     }
     else if (notification->status == I2SCC26XX_STREAM_BUFFER_READY)
     {
         // Provide buffer
         events |= IGOTX_AUDIO_FRAME_EVENT;
-        Semaphore_post(AS_Sem);
+        Semaphore_post(AEncodeSem);
     }
 }
 
@@ -358,9 +400,13 @@ static void stopAudioStream()
 static void processAudioFrame()
 {
     int16_t idx;
-    int readData;
+    int readDataEnc;
+    int readDataPack;
+
     I2SCC26XX_BufferRequest bufferRequest;
     I2SCC26XX_BufferRelease bufferRelease;
+
+    bufferRequest.buffersRequested = I2SCC26XX_BUFFER_IN;
     bool gotBuffer = I2SCC26XX_requestBuffer(i2sHandle, &bufferRequest);
 
     while (gotBuffer)
@@ -372,17 +418,24 @@ static void processAudioFrame()
             ChannelSamples[idx] = pb[2*idx+1];
         }
 
-        readData = adpcm64_encode_run(&encoder, ChannelSamples, encodedSamples, PCM_SAMPLES_PER_FRAME);
-        readData = adpcm64_pack_vadim(encodedSamples, packedSamples, readData);
+        readDataEnc = adpcm64_encode_run(&encoder, ChannelSamples, encodedSamples, PCM_SAMPLES_PER_FRAME);
+        readDataPack = adpcm64_pack_vadim(encodedSamples, packedSamples, readDataEnc);
 
+        //direct TX
         RF_cmdPropTxAdv.pPkt = (uint8_t*)packedSamples;
         RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
+
+        //.. or delegate to RFTX task
+        //packetReady = 1;
+        //Semaphore_post(RadioTxSem);
 
         bufferRelease.bufferHandleIn = bufferRequest.bufferHandleIn;
         bufferRelease.bufferHandleOut = NULL;
         I2SCC26XX_releaseBuffer(i2sHandle, &bufferRelease);
 
+        bufferRequest.buffersRequested = I2SCC26XX_BUFFER_IN;
         gotBuffer = I2SCC26XX_requestBuffer(i2sHandle, &bufferRequest);
+
     }
 }
 
@@ -393,9 +446,10 @@ static bool createAudioBuffers()
     pcmSamples = Memory_alloc(NULL, sizeof(int16_t) * (2*PCM_SAMPLES_PER_FRAME * I2SCC26XX_QUEUE_SIZE), 0, NULL);
     ChannelSamples = Memory_alloc(NULL, sizeof(int16_t) * PCM_SAMPLES_PER_FRAME, 0, NULL);
     encodedSamples = Memory_alloc(NULL, sizeof(uint16_t) * PCM_SAMPLES_PER_FRAME/2, 0, NULL);
-    packedSamples = Memory_alloc(NULL, sizeof(uint16_t) * 5*(PCM_SAMPLES_PER_FRAME/8), 0, NULL);
+    packedSamples = Memory_alloc(NULL, sizeof(uint8_t) * G722_P1_PAYLOAD_LENGTH, 0, NULL);
+    payloadBuffer = Memory_alloc(NULL, sizeof(uint8_t) * SENSOR_PACKET_LENGTH, 0, NULL);
 
-    if ( (pcmSamples == NULL ) || (ChannelSamples == NULL) || (encodedSamples == NULL) || (packedSamples == NULL))
+    if ( (payloadBuffer == NULL) || (pcmSamples == NULL ) || (ChannelSamples == NULL) || (encodedSamples == NULL) || (packedSamples == NULL))
     {
         return false;
     }
@@ -408,5 +462,6 @@ static void destroyAudioBuffers()
     Memory_free(NULL, pcmSamples, sizeof(int16_t) * (2*PCM_SAMPLES_PER_FRAME * I2SCC26XX_QUEUE_SIZE));
     Memory_free(NULL, ChannelSamples, sizeof(int16_t) * PCM_SAMPLES_PER_FRAME);
     Memory_free(NULL, encodedSamples, sizeof(uint16_t) * PCM_SAMPLES_PER_FRAME/2);
-    Memory_free(NULL, packedSamples, sizeof(uint16_t) * 5*(PCM_SAMPLES_PER_FRAME/8));
+    Memory_free(NULL, packedSamples, sizeof(uint8_t) * G722_P1_PAYLOAD_LENGTH);
+    Memory_free(NULL, payloadBuffer, sizeof(uint8_t) * SENSOR_PACKET_LENGTH );
 }

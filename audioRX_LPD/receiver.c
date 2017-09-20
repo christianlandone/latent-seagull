@@ -54,13 +54,17 @@
 #include <ti/drivers/PIN.h>
 #include DeviceFamily_constructPath(driverlib/rf_prop_mailbox.h)
 #include <ti/drivers/UART.h>
+#include <ti/drivers/I2C.h>
+#include <ti/drivers/PWM.h>
 
 /* Board Header files */
 #include "Board.h"
 
 #include "RFQueue.h"
-#include "smartrf_settings/smartrf_settings.h"
+#include "../IGOCommon/rfsettings/smartrf_settings.h"
 #include "G722/G722_64_Decoder.h"
+#include "../IGOCommon/IGOCommon.h"
+
 
 #include <stdlib.h>
 
@@ -76,24 +80,23 @@ PIN_Config pinTable[] =
 {
     Board_LED1 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
     Board_LED2 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+    Board_DIO15 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
     PIN_TERMINATE
 };
 
 
 /* Packet RX Configuration */
-#define DATA_ENTRY_HEADER_SIZE 8  /* Constant header size of a Generic Data Entry */
-#define ADPCM_FRAME_SIZE       60//384 /* 20 Max length byte the radio will accept */
 #define NUM_DATA_ENTRIES       2  /* NOTE: Only two data entries supported at the moment */
-#define NUM_APPENDED_BYTES     8  /* The Data Entries data field will contain:
+#define NUM_APPENDED_BYTES     0  /* The Data Entries data field will contain:
                                    * 1 Header byte (RF_cmdPropRx.rxConf.bIncludeHdr = 0x1)
                                    * Max 30 payload bytes
                                    * 1 status byte (RF_cmdPropRx.rxConf.bAppendStatus = 0x1) */
 
 /***** Defines *****/
-#define RADIO_RX_TASK_STACK_SIZE 2048
+#define RADIO_RX_TASK_STACK_SIZE 4096
 #define RADIO_RX_TASK_PRIORITY   1
 
-#define UART_RX_TASK_STACK_SIZE 1024
+#define UART_RX_TASK_STACK_SIZE 2048
 #define UART_RX_TASK_PRIORITY   2
 
 
@@ -123,16 +126,17 @@ Semaphore_Handle semUartRxHandle;
 
 static RF_Object rfObject;
 static RF_Handle rfHandle;
-static RF_CmdHandle rfRxCmd;
 
 UART_Handle uart = NULL;
 UART_Params uartParams;
+
+#define NO_CHANS 1
 
 
 /* Buffer which contains all Data Entries for receiving data.
  * Pragmas are needed to make sure this buffer is 4 byte aligned (requirement from the RF Core) */
 #pragma DATA_ALIGN (rxDataEntryBuffer, 4);
-static uint8_t rxDataEntryBuffer[RF_QUEUE_DATA_ENTRY_BUFFER_SIZE(NUM_DATA_ENTRIES, ADPCM_FRAME_SIZE, NUM_APPENDED_BYTES)];
+static uint8_t rxDataEntryBuffer[RF_QUEUE_DATA_ENTRY_BUFFER_SIZE(NUM_DATA_ENTRIES, G722_P1_PAYLOAD_LENGTH, SENSOR_OPS_DATA_LENGTH)];
 
 /* Receive dataQueue for RF Core to fill in data */
 static dataQueue_t dataQueue;
@@ -149,6 +153,8 @@ static PIN_Handle pinHandle;
 static uint8_t* encodedData;
 static uint16_t* unpackedData;
 static int16_t* pcmData;
+
+static int decodedSize;
 
 static bool CreateAudioBuffers();
 static void DestroyAudioBuffers();
@@ -185,12 +191,15 @@ static void radioRxTaskFunction(UArg arg0, UArg arg1)
 {
     RF_Params rfParams;
     RF_Params_init(&rfParams);
+    RF_CmdHandle rfRxCmd;
+
+    CreateAudioBuffers();
 
     if( RFQueue_defineQueue(&dataQueue,
                             rxDataEntryBuffer,
                             sizeof(rxDataEntryBuffer),
                             NUM_DATA_ENTRIES,
-                            ADPCM_FRAME_SIZE + NUM_APPENDED_BYTES))
+                            G722_P1_PAYLOAD_LENGTH + SENSOR_OPS_DATA_LENGTH))
     {
         /* Failed to allocate space for all data entries */
         while(1);
@@ -200,7 +209,7 @@ static void radioRxTaskFunction(UArg arg0, UArg arg1)
     RF_cmdPropRxAdv.pQueue = &dataQueue;           /* Set the Data Entity queue for received data */
     RF_cmdPropRxAdv.rxConf.bAutoFlushIgnored = 1;  /* Discard ignored packets from Rx queue */
     RF_cmdPropRxAdv.rxConf.bAutoFlushCrcErr = 1;   /* Discard packets with CRC error from Rx queue */
-    RF_cmdPropRxAdv.maxPktLen = ADPCM_FRAME_SIZE;  /* Implement packet length filtering to avoid PROP_ERROR_RXBUF */
+    RF_cmdPropRxAdv.maxPktLen = G722_P1_PAYLOAD_LENGTH;  /* Implement packet length filtering to avoid PROP_ERROR_RXBUF */
     RF_cmdPropRxAdv.pktConf.bRepeatOk = 1;
     RF_cmdPropRxAdv.pktConf.bRepeatNok = 1;
 
@@ -239,7 +248,7 @@ static void radioRxCallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         /* Handle the packet data, located at &currentDataEntry->data:
          * - Length is the first byte with the current configuration
          * - Data starts from the second byte */
-        packetLength      = ADPCM_FRAME_SIZE;
+        packetLength      = G722_P1_PAYLOAD_LENGTH;
         packetDataPointer = (uint8_t*)(&currentDataEntry->data);
 
         readData0 = adpcm64_unpack_vadim((uint16_t*)packetDataPointer, unpackedData, packetLength/2);
@@ -260,7 +269,7 @@ static void uartRxTaskFunction(UArg arg0, UArg arg1)
     if (uart == NULL) {
         /* Create a UART with data processing off. */
         uartConfigure();
-        bytesToUart = (ADPCM_FRAME_SIZE * 16)/5;
+        bytesToUart = (sizeof(int16_t)* G722_P1_PAYLOAD_LENGTH * G722_P1_CRATIO_DEN)/G722_P1_CRATIO_NUM;
 
         if (uart == NULL) {
             System_abort("Error opening the UART");
@@ -270,7 +279,7 @@ static void uartRxTaskFunction(UArg arg0, UArg arg1)
     while (1) {
         Semaphore_pend(semUartRxHandle, BIOS_WAIT_FOREVER);
         if (packetReady) {
-            uart_writePayLoad((uint8_t*)pcmData, bytesToUart);
+            uart_writePayLoad( pcmData, bytesToUart);
             packetReady = 0;
         }
     }
@@ -288,7 +297,6 @@ int main(void)
     Board_initGeneral();
     Board_initUART();
 
-    CreateAudioBuffers();
 
     /* Open LED pins */
     ledPinHandle = PIN_open(&ledPinState, pinTable);
@@ -296,6 +304,7 @@ int main(void)
     {
         System_abort("Error initializing board LED pins\n");
     }
+
 
     /* Construct a Semaphore object to be used as a resource lock, inital count 0 */
     Semaphore_Params_init(&semParams);
@@ -339,13 +348,13 @@ void uart_writePayLoad(uint8_t *packet, uint16_t length)
 
 static bool CreateAudioBuffers()
 {
-    int encodedSize = ADPCM_FRAME_SIZE;
+    int encodedSize = G722_P1_PAYLOAD_LENGTH;
     int unpackedSize = (encodedSize * 8)/5;
-    int decodedSize = unpackedSize * 2;
+    decodedSize = unpackedSize * 2;
 
-    encodedData = Memory_alloc(NULL, encodedSize, 0, NULL);
+    encodedData  = Memory_alloc(NULL, encodedSize, 0, NULL);
     unpackedData = Memory_alloc(NULL, unpackedSize, 0, NULL);
-    pcmData =      Memory_alloc(NULL, decodedSize, 0, NULL);
+    pcmData      = Memory_alloc(NULL, decodedSize, 0, NULL);
 
     if ( (encodedData == NULL ) || (unpackedData == NULL) || (pcmData == NULL) )
     {
@@ -357,11 +366,12 @@ static bool CreateAudioBuffers()
 
 static void DestroyAudioBuffers()
 {
-    int encodedSize = ADPCM_FRAME_SIZE;
+    int encodedSize = G722_P1_PAYLOAD_LENGTH;
     int unpackedSize = (encodedSize * 8)/5;
-    int decodedSize = unpackedSize * 2;
+    decodedSize = unpackedSize * 2;
 
     Memory_free(NULL, encodedData, encodedSize);
     Memory_free(NULL, unpackedData, unpackedSize);
     Memory_free(NULL, pcmData, decodedSize);
 }
+

@@ -359,7 +359,7 @@ const NVS_Config NVS_config[CC1350_LAUNCHXL_NVSCOUNT] = {
 const uint_least8_t NVS_count = CC1350_LAUNCHXL_NVSCOUNT;
 
 /*
-  *  =============================== I2S ===============================
+ *  =============================== I2S ===============================
 */
 #include "I2SDrv/I2SCC26XX.h"
 
@@ -374,6 +374,7 @@ const I2SCC26XX_HWAttrs i2sCC26XXHWAttrs = {
     .bclkPin = Board_I2S_BCLK,
     .wclkPin = Board_I2S_WCLK,
     .ad0Pin = Board_I2S_ADO,
+    .ad1Pin = Board_I2S_ADI,
 };
 
 /* I2S configuration structure */
