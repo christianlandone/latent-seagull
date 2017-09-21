@@ -214,7 +214,7 @@ static void taskFxnRadioTx(UArg arg0, UArg arg1)
     RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
 
 
-    RF_cmdPropTxAdv.pktLen = G722_P1_PAYLOAD_LENGTH;
+    RF_cmdPropTxAdv.pktLen = SENSOR_PACKET_LENGTH;
     RF_cmdPropTxAdv.startTrigger.triggerType = TRIG_NOW;
     RF_cmdPropTxAdv.startTrigger.pastTrig = 1;
     RF_cmdPropTxAdv.startTime = 0;
@@ -421,8 +421,10 @@ static void processAudioFrame()
         readDataEnc = adpcm64_encode_run(&encoder, ChannelSamples, encodedSamples, PCM_SAMPLES_PER_FRAME);
         readDataPack = adpcm64_pack_vadim(encodedSamples, packedSamples, readDataEnc);
 
+        memcpy( payloadBuffer+4, packedSamples, G722_P1_PAYLOAD_LENGTH );
+
         //direct TX
-        RF_cmdPropTxAdv.pPkt = (uint8_t*)packedSamples;
+        RF_cmdPropTxAdv.pPkt = (uint8_t*)payloadBuffer;
         RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
 
         //.. or delegate to RFTX task
@@ -448,6 +450,10 @@ static bool createAudioBuffers()
     encodedSamples = Memory_alloc(NULL, sizeof(uint16_t) * PCM_SAMPLES_PER_FRAME/2, 0, NULL);
     packedSamples = Memory_alloc(NULL, sizeof(uint8_t) * G722_P1_PAYLOAD_LENGTH, 0, NULL);
     payloadBuffer = Memory_alloc(NULL, sizeof(uint8_t) * SENSOR_PACKET_LENGTH, 0, NULL);
+    payloadBuffer[0] = 0;
+    payloadBuffer[1] = 0;
+    payloadBuffer[2] = 0;
+    payloadBuffer[3] = 1;
 
     if ( (payloadBuffer == NULL) || (pcmSamples == NULL ) || (ChannelSamples == NULL) || (encodedSamples == NULL) || (packedSamples == NULL))
     {

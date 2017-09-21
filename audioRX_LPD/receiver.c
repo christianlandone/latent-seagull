@@ -87,7 +87,7 @@ PIN_Config pinTable[] =
 
 /* Packet RX Configuration */
 #define NUM_DATA_ENTRIES       2  /* NOTE: Only two data entries supported at the moment */
-#define NUM_APPENDED_BYTES     0  /* The Data Entries data field will contain:
+#define NUM_APPENDED_BYTES     2  /* The Data Entries data field will contain:
                                    * 1 Header byte (RF_cmdPropRx.rxConf.bIncludeHdr = 0x1)
                                    * Max 30 payload bytes
                                    * 1 status byte (RF_cmdPropRx.rxConf.bAppendStatus = 0x1) */
@@ -136,7 +136,7 @@ UART_Params uartParams;
 /* Buffer which contains all Data Entries for receiving data.
  * Pragmas are needed to make sure this buffer is 4 byte aligned (requirement from the RF Core) */
 #pragma DATA_ALIGN (rxDataEntryBuffer, 4);
-static uint8_t rxDataEntryBuffer[RF_QUEUE_DATA_ENTRY_BUFFER_SIZE(NUM_DATA_ENTRIES, G722_P1_PAYLOAD_LENGTH, SENSOR_OPS_DATA_LENGTH)];
+static uint8_t rxDataEntryBuffer[RF_QUEUE_DATA_ENTRY_BUFFER_SIZE(NUM_DATA_ENTRIES, SENSOR_PACKET_LENGTH, NUM_APPENDED_BYTES)];
 
 /* Receive dataQueue for RF Core to fill in data */
 static dataQueue_t dataQueue;
@@ -199,7 +199,7 @@ static void radioRxTaskFunction(UArg arg0, UArg arg1)
                             rxDataEntryBuffer,
                             sizeof(rxDataEntryBuffer),
                             NUM_DATA_ENTRIES,
-                            G722_P1_PAYLOAD_LENGTH + SENSOR_OPS_DATA_LENGTH))
+                            SENSOR_PACKET_LENGTH + NUM_APPENDED_BYTES))
     {
         /* Failed to allocate space for all data entries */
         while(1);
@@ -209,7 +209,7 @@ static void radioRxTaskFunction(UArg arg0, UArg arg1)
     RF_cmdPropRxAdv.pQueue = &dataQueue;           /* Set the Data Entity queue for received data */
     RF_cmdPropRxAdv.rxConf.bAutoFlushIgnored = 1;  /* Discard ignored packets from Rx queue */
     RF_cmdPropRxAdv.rxConf.bAutoFlushCrcErr = 1;   /* Discard packets with CRC error from Rx queue */
-    RF_cmdPropRxAdv.maxPktLen = G722_P1_PAYLOAD_LENGTH;  /* Implement packet length filtering to avoid PROP_ERROR_RXBUF */
+    RF_cmdPropRxAdv.maxPktLen = SENSOR_PACKET_LENGTH;  /* Implement packet length filtering to avoid PROP_ERROR_RXBUF */
     RF_cmdPropRxAdv.pktConf.bRepeatOk = 1;
     RF_cmdPropRxAdv.pktConf.bRepeatNok = 1;
 
@@ -249,7 +249,7 @@ static void radioRxCallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
          * - Length is the first byte with the current configuration
          * - Data starts from the second byte */
         packetLength      = G722_P1_PAYLOAD_LENGTH;
-        packetDataPointer = (uint8_t*)(&currentDataEntry->data);
+        packetDataPointer = (uint8_t*)(&currentDataEntry->data)+4;
 
         readData0 = adpcm64_unpack_vadim((uint16_t*)packetDataPointer, unpackedData, packetLength/2);
         readData1 = adpcm64_decode_run(&audio_decoder, unpackedData, pcmData, readData0);

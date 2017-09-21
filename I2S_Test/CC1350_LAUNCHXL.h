@@ -85,6 +85,7 @@ extern const PIN_Config BoardGpioInitTable[];
 #define CC1350_LAUNCHXL_DIO23                 IOID_23
 #define CC1350_LAUNCHXL_DIO24                 IOID_24
 #define CC1350_LAUNCHXL_DIO25                 IOID_25
+#define CC1350_LAUNCHXL_DIO26                 IOID_26
 #define CC1350_LAUNCHXL_DIO30_SWPWR           IOID_30
 
 /* Discrete Inputs */
