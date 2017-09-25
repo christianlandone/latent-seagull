@@ -83,6 +83,8 @@ PIN_Config ledPinTable[] = {
     Board_PIN_LED1 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
     Board_PIN_LED2 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
     Board_DIO15 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+    Board_DIO26 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+    Board_DIO27 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL | PIN_DRVSTR_MAX,
     PIN_TERMINATE
 };
 
@@ -222,9 +224,13 @@ static void taskFxnRadioTx(UArg arg0, UArg arg1)
     while (1) {
         Semaphore_pend(RadioTxSem, BIOS_WAIT_FOREVER);
         if (packetReady) {
-            RF_cmdPropTxAdv.pPkt = (uint8_t*)packedSamples;
+            PIN_setOutputValue(ledPinHandle, Board_DIO26, 1);
+
+            RF_cmdPropTxAdv.pPkt = (uint8_t*)payloadBuffer;
             RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
             packetReady = 0;
+
+            PIN_setOutputValue(ledPinHandle, Board_DIO26, 0);
         }
     }
 }
@@ -411,6 +417,8 @@ static void processAudioFrame()
 
     while (gotBuffer)
     {
+        PIN_setOutputValue(ledPinHandle, Board_DIO27, 1);
+
         int16_t* pb = (int16_t*)bufferRequest.bufferIn;
 
         for(idx = 0; idx < streamVariables.samplesPerFrame; idx++ )
@@ -418,18 +426,18 @@ static void processAudioFrame()
             ChannelSamples[idx] = pb[2*idx+1];
         }
 
+
         readDataEnc = adpcm64_encode_run(&encoder, ChannelSamples, encodedSamples, PCM_SAMPLES_PER_FRAME);
         readDataPack = adpcm64_pack_vadim(encodedSamples, packedSamples, readDataEnc);
-
         memcpy( payloadBuffer+4, packedSamples, G722_P1_PAYLOAD_LENGTH );
 
         //direct TX
-        RF_cmdPropTxAdv.pPkt = (uint8_t*)payloadBuffer;
-        RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
+        //RF_cmdPropTxAdv.pPkt = (uint8_t*)payloadBuffer;
+        //RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
 
         //.. or delegate to RFTX task
-        //packetReady = 1;
-        //Semaphore_post(RadioTxSem);
+        packetReady = 1;
+        Semaphore_post(RadioTxSem);
 
         bufferRelease.bufferHandleIn = bufferRequest.bufferHandleIn;
         bufferRelease.bufferHandleOut = NULL;
@@ -438,6 +446,8 @@ static void processAudioFrame()
         bufferRequest.buffersRequested = I2SCC26XX_BUFFER_IN;
         gotBuffer = I2SCC26XX_requestBuffer(i2sHandle, &bufferRequest);
 
+
+        PIN_setOutputValue(ledPinHandle, Board_DIO27, 0);
     }
 }
 

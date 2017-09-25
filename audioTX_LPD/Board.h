@@ -68,6 +68,8 @@ extern "C" {
 #define Board_DIO17_TDI         CC1350_LAUNCHXL_DIO17_TDI
 #define Board_DIO21             CC1350_LAUNCHXL_DIO21
 #define Board_DIO22             CC1350_LAUNCHXL_DIO22
+#define Board_DIO26             CC1350_LAUNCHXL_DIO26
+#define Board_DIO27             CC1350_LAUNCHXL_DIO27
 #define Board_DIO30_SWPWR       CC1350_LAUNCHXL_DIO30_SWPWR
 
 #define Board_DIO23_ANALOG      CC1350_LAUNCHXL_DIO23_ANALOG

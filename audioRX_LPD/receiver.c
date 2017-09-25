@@ -153,7 +153,11 @@ static PIN_Handle pinHandle;
 static uint8_t* encodedData;
 static uint16_t* unpackedData;
 static int16_t* pcmData;
+static uint8_t* uartData;
 
+//uart frame header
+static char uartFrameHead[] = "RXFM";
+static int frameHeadSize;
 static int decodedSize;
 
 static bool CreateAudioBuffers();
@@ -171,6 +175,7 @@ void UartRxTask_init(PIN_Handle ledPinHandle) {
     uartRxTaskParams.stack = &uartRxTaskStack;
     uartRxTaskParams.arg0 = (UInt)1000000;
 
+    frameHeadSize = sizeof(uartFrameHead);
     Task_construct(&uartRxTask, uartRxTaskFunction, &uartRxTaskParams, NULL);
 }
 
@@ -248,11 +253,13 @@ static void radioRxCallback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         /* Handle the packet data, located at &currentDataEntry->data:
          * - Length is the first byte with the current configuration
          * - Data starts from the second byte */
-        packetLength      = G722_P1_PAYLOAD_LENGTH;
-        packetDataPointer = (uint8_t*)(&currentDataEntry->data)+4;
+        packetLength      = SENSOR_PACKET_LENGTH;
+        packetDataPointer = (uint8_t*)(&currentDataEntry->data)+0;
 
-        readData0 = adpcm64_unpack_vadim((uint16_t*)packetDataPointer, unpackedData, packetLength/2);
-        readData1 = adpcm64_decode_run(&audio_decoder, unpackedData, pcmData, readData0);
+        memcpy(uartData+frameHeadSize, packetDataPointer, packetLength);
+        //readData0 = adpcm64_unpack_vadim((uint16_t*)packetDataPointer, unpackedData, packetLength/2);
+        //readData1 = adpcm64_decode_run(&audio_decoder, unpackedData, pcmData, readData0);
+        //memcpy(uartData+frameHeadSize+4, pcmData, sizeof(int16_t)*readData1);
 
         packetReady = 1;
 
@@ -269,7 +276,8 @@ static void uartRxTaskFunction(UArg arg0, UArg arg1)
     if (uart == NULL) {
         /* Create a UART with data processing off. */
         uartConfigure();
-        bytesToUart = (sizeof(int16_t)* G722_P1_PAYLOAD_LENGTH * G722_P1_CRATIO_DEN)/G722_P1_CRATIO_NUM;
+        //bytesToUart = (sizeof(int16_t)* G722_P1_PAYLOAD_LENGTH * G722_P1_CRATIO_DEN)/G722_P1_CRATIO_NUM;
+        bytesToUart = SENSOR_PACKET_LENGTH + frameHeadSize;
 
         if (uart == NULL) {
             System_abort("Error opening the UART");
@@ -279,7 +287,7 @@ static void uartRxTaskFunction(UArg arg0, UArg arg1)
     while (1) {
         Semaphore_pend(semUartRxHandle, BIOS_WAIT_FOREVER);
         if (packetReady) {
-            uart_writePayLoad( pcmData, bytesToUart);
+            uart_writePayLoad( uartData, bytesToUart);
             packetReady = 0;
         }
     }
@@ -296,6 +304,8 @@ int main(void)
     /* Call board init functions. */
     Board_initGeneral();
     Board_initUART();
+
+    frameHeadSize = sizeof(uartFrameHead);
 
 
     /* Open LED pins */
@@ -355,8 +365,12 @@ static bool CreateAudioBuffers()
     encodedData  = Memory_alloc(NULL, encodedSize, 0, NULL);
     unpackedData = Memory_alloc(NULL, unpackedSize, 0, NULL);
     pcmData      = Memory_alloc(NULL, decodedSize, 0, NULL);
+    uartData     = Memory_alloc(NULL, SENSOR_PACKET_LENGTH + frameHeadSize, 0, NULL);
+    //uartData     = Memory_alloc(NULL, frameHeadSize + SENSOR_OPS_DATA_LENGTH + 192, 0, NULL);
 
-    if ( (encodedData == NULL ) || (unpackedData == NULL) || (pcmData == NULL) )
+    memcpy( uartData, uartFrameHead, frameHeadSize);
+
+    if ( (uartData == NULL ) || (encodedData == NULL ) || (unpackedData == NULL) || (pcmData == NULL) )
     {
         return false;
     }
@@ -373,5 +387,6 @@ static void DestroyAudioBuffers()
     Memory_free(NULL, encodedData, encodedSize);
     Memory_free(NULL, unpackedData, unpackedSize);
     Memory_free(NULL, pcmData, decodedSize);
+    Memory_free(NULL, uartData, SENSOR_PACKET_LENGTH + frameHeadSize);
 }
 
