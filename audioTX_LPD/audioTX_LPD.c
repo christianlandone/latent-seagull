@@ -30,10 +30,10 @@
 #include "G722/G722_64_Encoder.h"
 
 /* RF Settings */
-#include "../IGOCommon/rfsettings/smartrf_settings.h"
+#include "IGOCommon/rfsettings/smartrf_settings.h"
 
 /*general settings*/
-#include "../IGOCommon/IGOCommon.h"
+#include "IGOCommon/IGOCommon.h"
 
 #include <stdint.h>
 #include <unistd.h>
@@ -102,16 +102,12 @@ static G722ENCODER encoder;
 static RF_Object rfObject;
 static RF_Handle rfHandle;
 
-
 static int16_t  *pcmSamples;
 static int16_t  *ChannelSamples;
 static uint16_t *encodedSamples;
 static uint16_t *packedSamples;
 static uint8_t  *payloadBuffer;
 
-uint8_t i2sContMgtBuffer[I2S_BLOCK_OVERHEAD_IN_BYTES * I2SCC26XX_QUEUE_SIZE] = {0};
-
-//ssize_t written = 0;
 struct {
   STREAM_STATE_E streamState;
   uint8_t streamType;
@@ -119,17 +115,23 @@ struct {
 } streamVariables = {STREAM_STATE_IDLE, 0, 0};
 
 
-static I2SCC26XX_Handle i2sHandle = NULL;
-static I2SCC26XX_StreamNotification i2sStream;
-
-
 static void processAudioFrame();
 static bool startAudioStream();
 static void stopAudioStream();
 
+static bool audioStreamInProgress = false;
+
+static void initPWM_MClk();
+static bool initAudioBus();
+static bool createAudioBuffers();
+static void destroyAudioBuffers();
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//I2S Specific
 static void i2sCallbackFxn(I2SCC26XX_Handle handle, I2SCC26XX_StreamNotification *notification);
-
-
+uint8_t i2sContMgtBuffer[I2S_BLOCK_OVERHEAD_IN_BYTES * I2SCC26XX_QUEUE_SIZE] = {0};
+static I2SCC26XX_Handle i2sHandle = NULL;
+static I2SCC26XX_StreamNotification i2sStream;
 static I2SCC26XX_Params i2sParams = {
   .requestMode            = I2SCC26XX_CALLBACK_MODE,
   .ui32requestTimeout     = BIOS_WAIT_FOREVER,
@@ -141,14 +143,8 @@ static I2SCC26XX_Params i2sParams = {
   .ui32conMgtBufTotalSize = sizeof(i2sContMgtBuffer),
   .currentStream          = &i2sStream
 };
-
-static bool audioStreamInProgress = false;
-
-static void initPWM_MClk();
-static bool initAudioBus();
-static bool createAudioBuffers();
-static void destroyAudioBuffers();
-
+//I2S Specific
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 static void taskFxnAudioEncode(UArg arg0, UArg arg1)
 {
@@ -212,6 +208,11 @@ static void taskFxnRadioTx(UArg arg0, UArg arg1)
     //Radio stuff
     RF_Params rfParams;
     RF_Params_init(&rfParams);
+
+    RF_cmdPropRadioDivSetup.centerFreq = 0x365;
+    RF_cmdFs.frequency = 0x0366;
+    RF_cmdFs.fractFreq = 0x0000;
+
     rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
     RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
 
@@ -224,20 +225,20 @@ static void taskFxnRadioTx(UArg arg0, UArg arg1)
     while (1) {
         Semaphore_pend(RadioTxSem, BIOS_WAIT_FOREVER);
         if (packetReady) {
-            PIN_setOutputValue(ledPinHandle, Board_DIO26, 1);
+            //PIN_setOutputValue(ledPinHandle, Board_DIO26, 1);
 
             RF_cmdPropTxAdv.pPkt = (uint8_t*)payloadBuffer;
             RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
             packetReady = 0;
 
-            PIN_setOutputValue(ledPinHandle, Board_DIO26, 0);
+            //PIN_setOutputValue(ledPinHandle, Board_DIO26, 0);
         }
     }
 }
+
 ////////////////////////////////////////////////////////////////////////////////////////
 //  ======== main ========
 ////////////////////////////////////////////////////////////////////////////////////////
-
 main(void) {
     Task_Params AEncodeTaskParams;
     Semaphore_Params AEncodeSemParams;
@@ -417,7 +418,7 @@ static void processAudioFrame()
 
     while (gotBuffer)
     {
-        PIN_setOutputValue(ledPinHandle, Board_DIO27, 1);
+        //PIN_setOutputValue(ledPinHandle, Board_DIO27, 1);
 
         int16_t* pb = (int16_t*)bufferRequest.bufferIn;
 
@@ -426,18 +427,9 @@ static void processAudioFrame()
             ChannelSamples[idx] = pb[2*idx+1];
         }
 
-
         readDataEnc = adpcm64_encode_run(&encoder, ChannelSamples, encodedSamples, PCM_SAMPLES_PER_FRAME);
         readDataPack = adpcm64_pack_vadim(encodedSamples, packedSamples, readDataEnc);
         memcpy( payloadBuffer+4, packedSamples, G722_P1_PAYLOAD_LENGTH );
-
-        //direct TX
-        //RF_cmdPropTxAdv.pPkt = (uint8_t*)payloadBuffer;
-        //RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
-
-        //.. or delegate to RFTX task
-        packetReady = 1;
-        Semaphore_post(RadioTxSem);
 
         bufferRelease.bufferHandleIn = bufferRequest.bufferHandleIn;
         bufferRelease.bufferHandleOut = NULL;
@@ -446,8 +438,14 @@ static void processAudioFrame()
         bufferRequest.buffersRequested = I2SCC26XX_BUFFER_IN;
         gotBuffer = I2SCC26XX_requestBuffer(i2sHandle, &bufferRequest);
 
+        //direct TX
+        //RF_cmdPropTxAdv.pPkt = (uint8_t*)payloadBuffer;
+        //RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxAdv, RF_PriorityHigh, NULL, 0);
+        //.. or delegate to RFTX task
+        packetReady = 1;
+        Semaphore_post(RadioTxSem);
 
-        PIN_setOutputValue(ledPinHandle, Board_DIO27, 0);
+        //PIN_setOutputValue(ledPinHandle, Board_DIO27, 0);
     }
 }
 
@@ -460,15 +458,16 @@ static bool createAudioBuffers()
     encodedSamples = Memory_alloc(NULL, sizeof(uint16_t) * PCM_SAMPLES_PER_FRAME/2, 0, NULL);
     packedSamples = Memory_alloc(NULL, sizeof(uint8_t) * G722_P1_PAYLOAD_LENGTH, 0, NULL);
     payloadBuffer = Memory_alloc(NULL, sizeof(uint8_t) * SENSOR_PACKET_LENGTH, 0, NULL);
-    payloadBuffer[0] = 0;
-    payloadBuffer[1] = 0;
-    payloadBuffer[2] = 0;
-    payloadBuffer[3] = 1;
+    payloadBuffer[0] = 0xA7;
+    payloadBuffer[1] = 0x01;
+    payloadBuffer[2] = 0x0;
+    payloadBuffer[3] = 0x0;
 
     if ( (payloadBuffer == NULL) || (pcmSamples == NULL ) || (ChannelSamples == NULL) || (encodedSamples == NULL) || (packedSamples == NULL))
     {
         return false;
     }
+
     return true;
 }
 

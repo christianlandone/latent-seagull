@@ -178,6 +178,8 @@ $RECYCLE.BIN/
 #############
 ## code composer
 #############
-.jxbrowser-data
-.metadata
-.tempFiles
+.jxbrowser-data/
+.metadata/
+.tempFiles/
+dvt/
+RemoteSystemsTempFiles/
