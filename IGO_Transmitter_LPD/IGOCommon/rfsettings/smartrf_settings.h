@@ -28,5 +28,10 @@ extern rfc_CMD_PROP_RX_t RF_cmdPropRx;
 extern rfc_CMD_PROP_TX_ADV_t RF_cmdPropTxAdv;
 extern rfc_CMD_PROP_RX_ADV_t RF_cmdPropRxAdv;
 
+extern rfc_CMD_PROP_TX_t RF_cmdPropTxBeacon;
+extern rfc_CMD_PROP_RX_t RF_cmdPropRxBeacon;
+
+extern rfc_CMD_TX_TEST_t RF_cmdTxTest;
+
 #endif // _SMARTRF_SETTINGS_H_
 

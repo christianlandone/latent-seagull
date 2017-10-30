@@ -136,7 +136,7 @@ rfc_CMD_PROP_RADIO_DIV_SETUP_t RF_cmdPropRadioDivSetup =
     .config.bNoFsPowerUp = 0x0,
     .txPower = 0xAB3F,
     .pRegOverride = pOverrides,
-    .centerFreq = 0x0363,
+    .centerFreq = 0x0364,
     .intFreq = 0x8000,
     .loDivider = 0x05,
 };
@@ -155,8 +155,8 @@ rfc_CMD_FS_t RF_cmdFs =
     .startTrigger.pastTrig = 0x0,
     .condition.rule = 0x1,
     .condition.nSkip = 0x0,
-    .frequency = 0x0363,
-    .fractFreq = 0x8000,
+    .frequency = 0x0364,
+    .fractFreq = 0x0000,
     .synthConf.bTxMode = 0x0,
     .synthConf.refFreq = 0x0,
     .__dummy0 = 0x00,
@@ -228,6 +228,11 @@ rfc_CMD_PROP_RX_t RF_cmdPropRx =
     .pQueue = 0, // INSERT APPLICABLE POINTER: (dataQueue_t*)&xxx
     .pOutput = 0, // INSERT APPLICABLE POINTER: (uint8_t*)&xxx
 };
+
+//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+//data packets
+//////////////////////////////////////////////////////////////////////////////////
 
 rfc_CMD_PROP_TX_ADV_t RF_cmdPropTxAdv =
 {
@@ -306,3 +311,97 @@ rfc_CMD_PROP_RX_ADV_t RF_cmdPropRxAdv =
     .pQueue = 0, // INSERT APPLICABLE POINTER: (dataQueue_t*)&xxx
     .pOutput = 0, // INSERT APPLICABLE POINTER: (uint8_t*)&xxx
 };
+
+//////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+//beacon packets
+//////////////////////////////////////////////////////////////////////////////////
+
+// CMD_PROP_TX
+rfc_CMD_PROP_TX_t RF_cmdPropTxBeacon =
+{
+    .commandNo = 0x3801,
+    .status = 0x0000,
+    .pNextOp = 0, // INSERT APPLICABLE POINTER: (uint8_t*)&xxx
+    .startTime = 0x00000000,
+    .startTrigger.triggerType = 0x0,
+    .startTrigger.bEnaCmd = 0x0,
+    .startTrigger.triggerNo = 0x0,
+    .startTrigger.pastTrig = 0x0,
+    .condition.rule = 0x1,
+    .condition.nSkip = 0x0,
+    .pktConf.bFsOff = 0x0,
+    .pktConf.bUseCrc = 0x1,
+    .pktConf.bVarLen = 0x1,
+    .pktLen = 0x14, // SET APPLICATION PAYLOAD LENGTH
+    .syncWord = 0x930B51DE,
+    .pPkt = 0, // INSERT APPLICABLE POINTER: (uint8_t*)&xxx
+};
+
+// CMD_PROP_RX
+rfc_CMD_PROP_RX_t RF_cmdPropRxBeacon =
+{
+    .commandNo = 0x3802,
+    .status = 0x0000,
+    .pNextOp = 0, // INSERT APPLICABLE POINTER: (uint8_t*)&xxx
+    .startTime = 0x00000000,
+    .startTrigger.triggerType = 0x0,
+    .startTrigger.bEnaCmd = 0x0,
+    .startTrigger.triggerNo = 0x0,
+    .startTrigger.pastTrig = 0x0,
+    .condition.rule = 0x1,
+    .condition.nSkip = 0x0,
+    .pktConf.bFsOff = 0x0,
+    .pktConf.bRepeatOk = 0x0,
+    .pktConf.bRepeatNok = 0x0,
+    .pktConf.bUseCrc = 0x1,
+    .pktConf.bVarLen = 0x1,
+    .pktConf.bChkAddress = 0x0,
+    .pktConf.endType = 0x0,
+    .pktConf.filterOp = 0x0,
+    .rxConf.bAutoFlushIgnored = 0x0,
+    .rxConf.bAutoFlushCrcErr = 0x0,
+    .rxConf.bIncludeHdr = 0x1,
+    .rxConf.bIncludeCrc = 0x0,
+    .rxConf.bAppendRssi = 0x0,
+    .rxConf.bAppendTimestamp = 0x0,
+    .rxConf.bAppendStatus = 0x1,
+    .syncWord = 0x930B51DE,
+    .maxPktLen = 0x80, // MAKE SURE DATA ENTRY IS LARGE ENOUGH
+    .address0 = 0xAA,
+    .address1 = 0xBB,
+    .endTrigger.triggerType = 0x1,
+    .endTrigger.bEnaCmd = 0x0,
+    .endTrigger.triggerNo = 0x0,
+    .endTrigger.pastTrig = 0x0,
+    .endTime = 0x00000000,
+    .pQueue = 0, // INSERT APPLICABLE POINTER: (dataQueue_t*)&xxx
+    .pOutput = 0, // INSERT APPLICABLE POINTER: (uint8_t*)&xxx
+};
+
+rfc_CMD_TX_TEST_t RF_cmdTxTest =
+{
+    .commandNo = 0x0808,
+    .status = 0x0000,
+    .pNextOp = 0, // INSERT APPLICABLE POINTER: (uint8_t*)&xxx
+    .startTime = 0x00000000,
+    .startTrigger.triggerType = 0x0,
+    .startTrigger.bEnaCmd = 0x0,
+    .startTrigger.triggerNo = 0x0,
+    .startTrigger.pastTrig = 0x0,
+    .condition.rule = 0x1,
+    .condition.nSkip = 0x0,
+    .config.bUseCw = 0x0,
+    .config.bFsOff = 0x1,
+    .config.whitenMode = 0x2,
+    .__dummy0 = 0x00,
+    .txWord = 0xABCD,
+    .__dummy1 = 0x00,
+    .endTrigger.triggerType = 0x1,
+    .endTrigger.bEnaCmd = 0x0,
+    .endTrigger.triggerNo = 0x0,
+    .endTrigger.pastTrig = 0x0,
+    .syncWord = 0x930B51DE,
+    .endTime = 0x00000000,
+};
+

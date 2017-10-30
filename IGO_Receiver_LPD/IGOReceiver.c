@@ -66,7 +66,7 @@
 #include "G722/G722_64_Decoder.h"
 #include "IGOCommon/IGOCommon.h"
 #include "IGOCommon/rfsettings/smartrf_settings.h"
-
+#include "RXHelperFunctions.h"
 
 #include <stdlib.h>
 
@@ -140,6 +140,8 @@ static RF_Object rfObject;
 RF_Handle rfHandle;
 RF_CmdHandle rfRxCmd;
 
+static sysCommand sysCmd;
+
 static BeaconPacket beaconMessage;
 
 static uint16_t rxFrequency;
@@ -158,6 +160,7 @@ static dataQueue_t dataQueue;
 static rfc_dataEntryGeneral_t* currentDataEntry;
 uint8_t packetReady = 0;
 uint8_t cmdReceived = 0;
+uint8_t sendCmdToTx = 0;
 volatile uint8_t switchRF = 0;
 static uint16_t packetLength;
 static uint8_t* packetDataPointer;
@@ -169,7 +172,6 @@ static PIN_Handle pinHandle;
 static uint8_t* encodedData;
 static uint16_t* unpackedData;
 static uint8_t* uartData;
-static uint8_t* cmdData;
 
 //uart frame header
 static char uartFrameHead[] = "RXFM";
@@ -252,7 +254,6 @@ static void initRadio( uint16_t freq, uint16_t fract)
 
     beaconMessage.beaconInterval = RF_convertMsToRatTicks(RADIO_FRAME_PERIOD_MS);
 
-
     //Configure RX command
     RF_cmdPropRxAdv.pQueue = &dataQueue;           /* Set the Data Entity queue for received data */
     RF_cmdPropRxAdv.rxConf.bAutoFlushIgnored = 1;  /* Discard ignored packets from Rx queue */
@@ -261,8 +262,10 @@ static void initRadio( uint16_t freq, uint16_t fract)
     RF_cmdPropRxAdv.pktConf.bRepeatOk = 0;//1;
     RF_cmdPropRxAdv.pktConf.bRepeatNok = 0;//1;
 
+    RF_cmdPropRxAdv.startTrigger.triggerType = TRIG_NOW;
+    RF_cmdPropRxAdv.startTime = 0;
     RF_cmdPropRxAdv.endTrigger.triggerType = TRIG_REL_START;
-    RF_cmdPropRxAdv.endTime = RF_convertUsToRatTicks(6000);
+    RF_cmdPropRxAdv.endTime = RF_convertUsToRatTicks(5000);
 
     packetLength = SENSOR_PACKET_LENGTH;
 
@@ -272,26 +275,40 @@ static void initRadio( uint16_t freq, uint16_t fract)
     RF_cmdPropRadioDivSetup.centerFreq = freq;
 
     rfHandle = RF_open(&rfObject, &RF_prop, (RF_RadioSetup*)&RF_cmdPropRadioDivSetup, &rfParams);
-    //RF_postCmd( rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
     RF_runCmd( rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
 }
 
 static void radioRxTaskFunction(UArg arg0, UArg arg1)
 {
-
     CreateAudioBuffers();
 
     // initialise SB-ADPC Decoder
     adpcm64_decode_init(&audio_decoder);
 
-
-    initRadio(0x0361, 0x0000);
+    initRadio(0x0365, 0x0000);
 
     while (1)
     {
         RF_cmdPropTxBeacon.startTime += RF_convertMsToRatTicks(RADIO_FRAME_PERIOD_MS);
         beaconMessage.txTime = RF_cmdPropTxBeacon.startTime;
 
+        if( sendCmdToTx)
+        {
+            beaconMessage.Address0 = sysCmd.devAddr0;
+            beaconMessage.Address1 = sysCmd.devAddr1;
+            beaconMessage.cmdNumber = sysCmd.cmdNumber;
+            beaconMessage.cmdValue = sysCmd.cmdValue;
+            sendCmdToTx = 0;
+        }
+        else
+        {
+            beaconMessage.Address0 = 0;
+            beaconMessage.Address1 = 0;
+            beaconMessage.cmdNumber = 0;
+            beaconMessage.cmdValue = 0;
+        }
+
+        //RF_cmdPropTxBeacon.pNextOp = (RF_Op*)&RF_cmdPropRxAdv;
         RF_EventMask result = RF_runCmd(rfHandle, (RF_Op*)&RF_cmdPropTxBeacon, RF_PriorityNormal, NULL, 0);
 
         //Enter RX mode and stay there for at least 2mS in RX (callback original implementation)
@@ -327,8 +344,6 @@ static void radioRxTaskFunction(UArg arg0, UArg arg1)
             packetDataPointer = (uint8_t*)(&currentDataEntry->data)+0;
 
             memcpy(uartData+frameHeadSize, packetDataPointer, packetLength);
-
-
         }
 
         packetReady = 1;
@@ -362,10 +377,7 @@ static void uartRxTaskFunction(UArg arg0, UArg arg1)
 
 static void uartCmdTaskFunction(UArg arg0, UArg arg1)
 {
-    uint8_t cmdType;
-    uint8_t cmdValue;
     uint16_t newFreq;
-
 
     if (uart == NULL) {
         /* Create a UART with data processing off. */
@@ -382,81 +394,42 @@ static void uartCmdTaskFunction(UArg arg0, UArg arg1)
 
         if( cmdReceived )
         {
-            cmdType  = cmdData[0];
-            cmdValue = cmdData[1];
-
-            switch( cmdValue)
+            switch( sysCmd.deviceType)
             {
-                case 0:
-                {
-                    newFreq = 0x035C;
+                case 0:{
+                    //unassigned
                 }
                 break;
 
-                case 1:
-                {
-                    newFreq = 0x035D;
+                case 1:{
+                    //transmit packet to sensors
+                    sendCmdToTx = 1;
                 }
                 break;
 
-                case 2:
-                {
-                    newFreq = 0x035E;
+                case 2:{
+                    //receiver command
+                    switch( sysCmd.cmdNumber)
+                    {
+                        case 0:{
+                        }
+                        break;
+
+                        case 1:{
+                            //change operational frequency of the system
+                            newFreq = rxChannelToFreq( sysCmd.cmdValue);
+                            rxFrequency = newFreq;
+                            switchRF = 1;
+                        }
+                        break;
+                    }
                 }
                 break;
 
-                case 3:
-                {
-                    newFreq = 0x035F;
-                }
-                break;
-
-                case 4:
-                {
-                    newFreq = 0x0360;
-                }
-                break;
-
-                case 5:
-                {
-                    newFreq = 0x0361;
-                }
-                break;
-
-                case 6:
-                {
-                    newFreq = 0x0362;
-                }
-                break;
-
-                case 7:
-                {
-                    newFreq = 0x0363;
-                }
-                break;
-
-                case 8:
-                {
-                    newFreq = 0x0364;
-                }
-                break;
-
-                case 9:
-                {
-                    newFreq = 0x0365;
-                }
-                break;
-
-
-                default:
-                {
-                    newFreq = 0x35C;
+                default:{
                 }
                 break;
             }
-
-            rxFrequency = newFreq;
-            switchRF = 1;
         }
     }
 }
@@ -520,7 +493,7 @@ int main(void)
 //*****************************************************************************
 static void UART00_IRQHandler(UART_Handle handle, void *buffer, size_t num)
 {
-    memcpy( cmdData, buffer, num);
+    memcpy( &sysCmd, buffer, num);
     cmdReceived = 1;
     Semaphore_post(semUartCmdHandle);
 }
@@ -544,7 +517,7 @@ void uart_writePayLoad(uint8_t *packet, uint16_t length)
 
     UART_write(uart, packet, length);
 
-    UART_read(uart, input, 2);
+    UART_read(uart, input, sizeof(sysCommand));
 }
 
 
@@ -556,7 +529,6 @@ static bool CreateAudioBuffers()
     encodedData  = Memory_alloc(NULL, encodedSize, 0, NULL);
     unpackedData = Memory_alloc(NULL, unpackedSize, 0, NULL);
     uartData     = Memory_alloc(NULL, SENSOR_PACKET_LENGTH + frameHeadSize, 0, NULL);
-    cmdData      = Memory_alloc(NULL, RX_COMMAND_SIZE, 0, NULL);
     memcpy( uartData, uartFrameHead, frameHeadSize);
 
     if ( (uartData == NULL ) || (encodedData == NULL ) || (unpackedData == NULL)  )
@@ -575,7 +547,6 @@ static void DestroyAudioBuffers()
     Memory_free(NULL, encodedData, encodedSize);
     Memory_free(NULL, unpackedData, unpackedSize);
     Memory_free(NULL, uartData, SENSOR_PACKET_LENGTH + frameHeadSize);
-    Memory_free(NULL, cmdData, RX_COMMAND_SIZE);
 }
 
 
